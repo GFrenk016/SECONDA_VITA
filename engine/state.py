@@ -5,6 +5,9 @@ from typing import Dict, Any
 class Player:
     name: str = "Frank"
     inventory: Dict[str, int] = field(default_factory=dict)
+    health: int = 100
+    energy: int = 100
+    morale: int = 100
 
 @dataclass
 class Location:
@@ -24,7 +27,13 @@ class GameState:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "tick": self.tick,
-            "player": {"name": self.player.name, "inventory": self.player.inventory},
+            "player": {
+                "name": self.player.name,
+                "inventory": self.player.inventory,
+                "health": self.player.health,
+                "energy": self.player.energy,
+                "morale": self.player.morale,
+            },
             "location_key": self.location_key,
             "flags": self.flags,
         }
@@ -36,6 +45,9 @@ class GameState:
         p = data.get("player", {})
         st.player.name = p.get("name", "Frank")
         st.player.inventory = p.get("inventory", {})
+        st.player.health = p.get("health", 100)
+        st.player.energy = p.get("energy", 100)
+        st.player.morale = p.get("morale", 100)
         st.location_key = data.get("location_key", "foresta")
         st.flags = data.get("flags", {})
         return st

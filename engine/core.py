@@ -24,6 +24,11 @@ class Game:
         args = self._parse_args()
         state = self._load_or_new(args.save or self.settings.get("default_save"))
         world = build_world()
+
+        # Fallback location se il salvataggio punta a una chiave non presente
+        if state.location_key not in world:
+            state.location_key = "foresta"
+
         self.ctx = Context(state=state, world=world, settings=self.settings)
         on_bootstrap(self.ctx)
 
@@ -53,6 +58,11 @@ class Game:
 
     def _tick(self):
         self.ctx.state.tick += 1
+
+        # Effetto fatica semplice: -1 energy a ogni turno (clamp 0–100)
+        p = self.ctx.state.player
+        p.energy = max(0, min(100, p.energy - 1))
+
         on_tick(self.ctx)
         self._autosave()
 

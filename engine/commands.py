@@ -79,6 +79,11 @@ def cmd_inventory(ctx, *args):
     items = ", ".join([f"{k} x{v}" for k, v in inv.items()])
     say(f"Inventory: {items}")
 
+def cmd_stats(ctx, *args):
+    p = ctx.state.player
+    # Comando in ENG, output compatto
+    say(f"Stats -> Health: {p.health}, Energy: {p.energy}, Morale: {p.morale}")
+
 def cmd_talk(ctx, *args):
     # Placeholder dialoghi (ENG), narrativa resta ITA altrove
     target = (args[0].lower() if args else "").strip()
@@ -92,4 +97,5 @@ REGISTRY.register("look", cmd_look, aliases=["l"])
 REGISTRY.register("go", cmd_go)
 REGISTRY.register("take", cmd_take)
 REGISTRY.register("inventory", cmd_inventory, aliases=["inv", "bag"])
+REGISTRY.register("stats", cmd_stats)  # <— nuovo
 REGISTRY.register("talk", cmd_talk)

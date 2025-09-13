@@ -1,94 +1,95 @@
 from typing import Callable, Dict, List
 from engine.io import say
-from engine.persistence import save_state, load_state
-from engine.state import GameState
+from engine.state import Location
 
 class CommandRegistry:
     def __init__(self):
         self._cmds: Dict[str, Callable] = {}
         self._aliases: Dict[str, str] = {}
-        
-    def register(self, name: str, func: Callable, aliases: List[str] | None =
-None):
+
+    def register(self, name: str, func: Callable, aliases: List[str] | None = None):
         self._cmds[name] = func
-        for a in aliases or []:
+        for a in (aliases or []):
             self._aliases[a] = name
-            
+
     def resolve(self, token: str) -> Callable | None:
         key = token.lower().strip()
-        if key in self._cmds:
-            return self._cmds[key]
-        if key in self._aliases:
-            return self._cmds.get(self._aliases[key])
+        if key in self._cmds: return self._cmds[key]
+        if key in self._aliases: return self._cmds.get(self._aliases[key])
         return None
-    
+
     def list(self) -> Dict[str, Callable]:
         return dict(self._cmds)
-    
+
 REGISTRY = CommandRegistry()
 
+# --- base commands (ENGLISH NAMES) ---
+
 def cmd_help(ctx, *args):
-    say("Available commands:")
-    for name in sorted(REGISTRY.list().keys()):
-        say(f" - {name}")
-        
+    say("Comandi disponibili:")
+    for k in sorted(REGISTRY.list().keys()):
+        say(f" - {k}")
+
 def cmd_look(ctx, *args):
-    loc = ctx.state.location_key
-    current = ctx.world[loc]
-    say(f"{current.name}\n{current.desc}")
-    if current.exits:
-        exits = ", ".join([f"{k} -> {v}" for k, v in current.exits.items()])
-        say(f"Exits: {exits}")
-        
+    loc = ctx.world[ctx.state.location_key]
+    # Narrativa in ITA
+    say(f"{loc.name}\n{loc.desc}")
+    if loc.items:
+        items = ", ".join([f"{n} x{q}" for n, q in loc.items.items()])
+        say(f"Vedi: {items}")
+    if loc.exits:
+        exits = ", ".join([f"{d} -> {dest}" for d, dest in loc.exits.items()])
+        say(f"Uscite: {exits}")
+
 def cmd_go(ctx, *args):
     if not args:
-        say("Go where?")
+        say("Andare dove?")
         return
     direction = args[0].lower()
-    current = ctx.world[ctx.state.location_key]
-    if direction not in current.exits:
-        say("You can't go that way.")
+    loc: Location = ctx.world[ctx.state.location_key]
+    if direction not in loc.exits:
+        say("Non puoi andare in quella direzione.")
         return
-    ctx.state.location_key = current.exits[direction]
+    ctx.state.location_key = loc.exits[direction]
     cmd_look(ctx)
-    
+
 def cmd_take(ctx, *args):
     if not args:
-        say("Take what?")
+        say("Prendere cosa?")
         return
     item = args[0].lower()
+    loc: Location = ctx.world[ctx.state.location_key]
+    qty = loc.items.get(item, 0)
+    if qty <= 0:
+        say(f"Non vedi il {item} qui.")
+        return
+    # prendi 1
+    loc.items[item] = qty - 1
+    if loc.items[item] <= 0:
+        del loc.items[item]
     inv = ctx.state.player.inventory
     inv[item] = inv.get(item, 0) + 1
-    say(f"You take the {item}.")
+    say(f"Hai preso il {item}.")
 
-def cmd_save(ctx, *args):
-    name = args[0] if args else ctx.settings.get("default_save", "autosave")
-    save_state(name, ctx.state.to_dict())
-    say(f"Saved to '{name}'.")
-
-def cmd_load(ctx, *args):
-    name = args[0] if args else ctx.settings.get("default_save", "autosave")
-    data = load_state(name)
-    if not data:
-        say(f"No save named '{name}'.")
+def cmd_inventory(ctx, *args):
+    inv = ctx.state.player.inventory
+    if not inv:
+        say("Il tuo inventario è vuoto.")
         return
-    ctx.state = GameState.from_dict(data)
-    say(f"Loaded '{name}'.")
+    items = ", ".join([f"{k} x{v}" for k, v in inv.items()])
+    say(f"Inventory: {items}")
 
-def cmd_use(ctx, *args):
-    if not args:
-        say("Use what?")
-        return
-    item = args[0].lower()
-    if ctx.state.player.inventory.get(item, 0) <= 0:
-        say(f"You don't have a {item}.")
-        return
-    say(f"You use the {item}, but nothing happens… yet.")
+def cmd_talk(ctx, *args):
+    # Placeholder dialoghi (ENG), narrativa resta ITA altrove
+    target = (args[0].lower() if args else "").strip()
+    if target in ("clem", "clementine"):
+        say('Clementine: "We move at dawn. Stay ready, Frank."')
+    else:
+        say("Nessuno ha risposto.")
 
-REGISTRY.register("save", cmd_save)
-REGISTRY.register("load", cmd_load)
 REGISTRY.register("help", cmd_help, aliases=["h", "?"])
 REGISTRY.register("look", cmd_look, aliases=["l"])
 REGISTRY.register("go", cmd_go)
 REGISTRY.register("take", cmd_take)
-REGISTRY.register("use", cmd_use)
+REGISTRY.register("inventory", cmd_inventory, aliases=["inv", "bag"])
+REGISTRY.register("talk", cmd_talk)

@@ -1,30 +1,27 @@
 from engine.state import Location
 
 def build_world():
-    # Esempio di 3 location collegate
+    # Due luoghi: foresta, casa abbandonata
+    # Due oggetti totali: coltello (foresta), foto (casa)
     return {
-        "start": Location(
-            key="start",
-            name="A Small Clearing",
+        "foresta": Location(
+            key="foresta",
+            name="Foresta",
             desc=(
-            "The grass is wet with dawn. A narrow path bends north between old pines."
+                "L’alba filtra tra gli aghi dei pini. L’aria sa di resina e terra bagnata. "
+                "Un sentiero incerto conduce a nord, dove la luce si fa più pallida."
             ),
-            exits={"north": "woods"},
-            ),
-        "woods": Location(
-            key="woods",
-            name="Whispering Woods",
+            exits={"north": "casa"},
+            items={"coltello": 1}
+        ),
+        "casa": Location(
+            key="casa",
+            name="Casa Abbandonata",
             desc=(
-            "Branches lace above you. Somewhere, water drips. Paths lead east and south."
+                "Tavole che scricchiolano, luce obliqua dalle finestre rotte. "
+                "Una fotografia impolverata riposa su un tavolo storto."
             ),
-            exits={"east": "cabin", "south": "start"},
-            ),
-        "cabin": Location(
-            key="cabin",
-            name="Abandoned Cabin",
-            desc=(
-            "Dust hangs in slanted light. A table, a cold stove, and a locked chest."
-            ),
-            exits={"west": "woods"},
+            exits={"south": "foresta"},
+            items={"foto": 1}
         ),
     }

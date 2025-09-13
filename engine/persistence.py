@@ -1,5 +1,4 @@
-import json
-import os
+import json, os
 from typing import Optional
 
 SAVE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "saves"))

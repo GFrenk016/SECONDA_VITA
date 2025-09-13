@@ -1,12 +1,13 @@
 from engine.io import say
+from engine.commands import cmd_look
 
 def on_bootstrap(ctx):
-    # Messaggio iniziale + prima descrizione location
-    say("A chill runs through the trees. The world waits.")
-    from engine.commands import cmd_look
-    cmd_look(ctx)
+    # Narrativa in ITA
+    say("Il bosco trattiene il fiato. Frank ascolta. Qualcosa lo chiama da nord.")
+    cmd_look(ctx)  # mostra la location iniziale
+
 def on_tick(ctx):
-    # Esempio di evento passivo: dopo 10 tick setta un flag
-    if ctx.state.tick == 10 and not ctx.state.flags.get("heard_bird"):
-        say("Far away, a lone bird cries. You are not alone.")
-        ctx.state.flags["heard_bird"] = True
+    # Piccolo evento atmosferico dopo 3 comandi
+    if ctx.state.tick == 3 and not ctx.state.flags.get("vento"):
+        say("Un soffio di vento sposta gli aghi: pare un sussurro. Non sei solo.")
+        ctx.state.flags["vento"] = True

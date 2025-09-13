@@ -1,8 +1,8 @@
 SETTINGS = {
-    "title": "Text Adventure Engine",
-    "version": "1.0",
+    "title": "Seconda Vita — Mini",
+    "version": "0.1",
     "default_save": "autosave",
-    "autosave_every": 5, # comandi
-    "colors": True,
+    "autosave_every": 5, 
+    "colors": False,
     "prompt": "> ",
 }

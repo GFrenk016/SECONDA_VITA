@@ -1,0 +1,29 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Backup / log / temp
+*.log
+*.tmp
+*.bak
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtualenv (anche se non lo usi)
+venv/
+.venv/
+
+# Salvataggi gioco
+data/saves/*.json
+
+# Build / dist
+dist/
+build/

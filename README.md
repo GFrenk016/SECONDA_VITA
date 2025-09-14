@@ -50,7 +50,11 @@ Comandi & dialoghi: ENG
 
 [X] Effetto Fatica: -1 Energy per tick
 
-[] Director (gestione eventi dinamici / spawn walker)
+[X] Menu iniziale (Continue: load/delete; New Game: saveN)
+
+[X] Ritorno al menu con comando menu
+
+[X] Game Over → menu
 
 [] Validators (clamp globale stats, limiti inventario, ecc.)
 
@@ -64,19 +68,21 @@ Comandi & dialoghi: ENG
 
 [X] Flags → per eventi (vento, ecc.)
 
+[X] Director (gestione eventi dinamici / spawn walker)
+
 [] Relationships (Clem, AJ, Louis…)
 
 [] Log/Memory delle azioni
 
 🗡 Modules agganciati allo State
 
-[] Combat (spawn walker + comando attack)
+[X] Combat (spawn walker + comando attack)
 
-[] Events (random atmosferici o incontri)
+[X] Events (random atmosferici o incontri)
 
-[] Narrative Director (bivi Telltale-style)
+[X] Narrative Director (orchestrazione per tick)
 
-[] Memory/Journal (recap azioni, indizi raccolti)
+[X] Memory/Journal (recap azioni, indizi raccolti)
 
 🎨 Renderer
 
@@ -103,3 +109,15 @@ Comandi & dialoghi: ENG
 [] Mappa ampliata (New Richmond, Ericson, ecc.)
 
 [] Zone pericolose con spawn speciali
+
+💽 Salvataggi (dal menù)
+
+[X] New Game auto-slot (save1, save2, …)
+
+[X] Continue: lista, Load/Delete
+
+[X] In-game: save, save +, save <name>, menu
+
+[X] Sessioni isolate (journal/stats separati per slot)
+
+[] Autosave

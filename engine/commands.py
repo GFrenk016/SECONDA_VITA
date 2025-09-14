@@ -1,6 +1,9 @@
 from typing import Callable, Dict, List
 from engine.io import say
-from engine.state import Location
+from engine.state import Location, GameState
+from engine.journal import print_journal
+from engine.combat import attack as attack_cmd
+from engine.persistence import save_state, next_save_name
 
 class CommandRegistry:
     def __init__(self):
@@ -23,7 +26,7 @@ class CommandRegistry:
 
 REGISTRY = CommandRegistry()
 
-# --- base commands (ENGLISH NAMES) ---
+# --- base commands (ENG names, narrativa ITA) ---
 
 def cmd_help(ctx, *args):
     say("Comandi disponibili:")
@@ -32,7 +35,6 @@ def cmd_help(ctx, *args):
 
 def cmd_look(ctx, *args):
     loc = ctx.world[ctx.state.location_key]
-    # Narrativa in ITA
     say(f"{loc.name}\n{loc.desc}")
     if loc.items:
         items = ", ".join([f"{n} x{q}" for n, q in loc.items.items()])
@@ -63,7 +65,6 @@ def cmd_take(ctx, *args):
     if qty <= 0:
         say(f"Non vedi il {item} qui.")
         return
-    # prendi 1
     loc.items[item] = qty - 1
     if loc.items[item] <= 0:
         del loc.items[item]
@@ -81,21 +82,56 @@ def cmd_inventory(ctx, *args):
 
 def cmd_stats(ctx, *args):
     p = ctx.state.player
-    # Comando in ENG, output compatto
     say(f"Stats -> Health: {p.health}, Energy: {p.energy}, Morale: {p.morale}")
 
 def cmd_talk(ctx, *args):
-    # Placeholder dialoghi (ENG), narrativa resta ITA altrove
     target = (args[0].lower() if args else "").strip()
     if target in ("clem", "clementine"):
         say('Clementine: "We move at dawn. Stay ready, Frank."')
     else:
         say("Nessuno ha risposto.")
 
+def cmd_journal(ctx, *args):
+    print_journal(ctx)
+
+def cmd_attack(ctx, *args):
+    attack_cmd(ctx, *args)
+
+# --------- Manual Save & Return to Menu ---------
+
+def cmd_save(ctx, *args):
+    """
+    save            -> salva nello slot corrente (se esiste) altrimenti su next saveN
+    save <name>     -> salva con un nome specifico
+    save +          -> crea automaticamente il prossimo saveN
+    """
+    if args and args[0] in ("+", "new"):
+        name = next_save_name("save")
+    elif args:
+        name = args[0].strip()
+    else:
+        # se non abbiamo uno slot corrente, creiamo saveN
+        name = ctx.current_slot or next_save_name("save")
+
+    save_state(name, ctx.state.to_dict())
+    ctx.current_slot = name
+    say(f"Salvato in '{name}'.")
+
+def cmd_menu(ctx, *args):
+    """Torna al menù principale."""
+    say("Ritorno al menù principale...")
+    ctx.state.flags["return_to_menu"] = True
+
 REGISTRY.register("help", cmd_help, aliases=["h", "?"])
 REGISTRY.register("look", cmd_look, aliases=["l"])
 REGISTRY.register("go", cmd_go)
 REGISTRY.register("take", cmd_take)
 REGISTRY.register("inventory", cmd_inventory, aliases=["inv", "bag"])
-REGISTRY.register("stats", cmd_stats)  # <— nuovo
+REGISTRY.register("stats", cmd_stats)
 REGISTRY.register("talk", cmd_talk)
+REGISTRY.register("journal", cmd_journal)
+REGISTRY.register("attack", cmd_attack)
+
+# nuovi
+REGISTRY.register("save", cmd_save)
+REGISTRY.register("menu", cmd_menu)

@@ -18,6 +18,88 @@ Note:
 Narrazione: ITA
 Comandi & dialoghi: ENG
 
+## ✅ Stato attuale del progetto (alpha 0.3 base)
+
+### 🔹 Struttura generale
+
+* **`engine/`**
+
+  * `core.py` → gestisce bootstrap, loop, normalizzazione chiavi, ritorno al menù.
+  * `commands.py` → registro comandi (`look`, `go`, `take`, `inventory`, `stats`, `talk`, `journal`, `attack`, `where`, `save`, `menu`).
+  * `state.py` → definisce `Player`, `Location`, `GameState`.
+  * altri moduli: `persistence`, `combat`, `journal`, ecc.
+* **`game/`**
+
+  * `scenes.py` → carica i mondi JSON, genera celle, landmark, portali, ostacoli.
+  * `scripting.py` → eventi narrativi all’avvio / per tick.
+* **`assets/world/`**
+
+  * `overworld.json`, `house.json` → definiscono mappa griglia 2D, landmark, porte, ecc.
+
+---
+
+### 🔹 Movimento
+
+* Ora usiamo una **griglia 2D (X,Z)** con `CELL_SIZE_METERS` = 2m.
+* Comando:
+
+  ```bash
+  go east 10
+  ```
+
+  → ti sposti di 10 celle (\~20m), fermandoti se incontri ostacoli o bordi.
+* Niente “volare” con `up/down`: movimento verticale solo se c’è una scala/porta definita in JSON.
+
+---
+
+### 🔹 JSON del mondo
+
+* Ogni mondo (`overworld`, `house`, ecc.) è descritto da JSON:
+
+  * `meta`: dimensioni, spawn point.
+  * `landmarks`: zone (Foresta Infinita, Radura, Casa Facciata, Atrio…).
+  * `doors`: coppie inside/outside per i portali tra mondi.
+  * `obstacles`: muri/blocchi rettangolari.
+* Puoi ingrandire le zone modificando solo i `bbox` senza toccare codice.
+
+---
+
+### 🔹 Portali e landmark
+
+* Se sei **sopra** a un portale: `look` mostra
+  👉 *"Qui c'è un ingresso per Casa Abbandonata (enter)"*.
+* Se sei **vicino** (cella adiacente): `look` mostra
+  👉 *"Intravedi un ingresso: east → Casa Abbandonata"*.
+* Se sei **al confine** tra due landmark: `look` mostra
+  👉 *"A confine di zona: north → Radura Luminosa"*.
+
+---
+
+### 🔹 Hint per l’Atrio
+
+* Dentro la mappa `house`, ogni `look` ti dice anche **come arrivare all’Atrio** (se non ci sei già):
+  👉 *"Per raggiungere Casa — Interno (Atrio): east 2, north 1 (\~3 passi)"*.
+
+---
+
+### 🔹 Salvataggi & menù
+
+* Non c’è più autosave automatico.
+* Comandi:
+
+  * `save` / `save +` → crea/aggiorna slot.
+  * `menu` → ritorna al menù principale.
+* `main.py` gestisce **New Game**, **Continue** (scegli salvataggio), **Delete Save**.
+
+---
+
+### 🔹 Journal
+
+* Registra eventi principali (`go`, `take`, `save`, ecc.).
+* Comando `journal` → stampa cronologia della sessione.
+
+---
+
 # Schema Progetto
 
 👤 User
@@ -106,7 +188,7 @@ Comandi & dialoghi: ENG
 
 [x] 2 location di base (Foresta, Casa abbandonata)
 
-[] Mappa ampliata (New Richmond, Ericson, ecc.)
+[X] Mappa 2D + Landmarks
 
 [] Zone pericolose con spawn speciali
 
@@ -121,3 +203,33 @@ Comandi & dialoghi: ENG
 [X] Sessioni isolate (journal/stats separati per slot)
 
 [] Autosave
+
+# Struttura progetto
+
+├── README.md
+├── start_game.bat
+├── config.py
+├── main.py
+├── engine
+|   ├── combat.py
+│   ├── core.py
+│   ├── commands.py
+|   ├── events.py
+│   ├── state.py
+│   ├── persistence.py
+│   ├── io.py
+│   ├── journal.py
+│   ├── plugins.py
+│   └── __init__.py
+├── game
+│   ├── scenes.py
+│   ├── scripting.py
+│   ├── director.py
+│   └── __init__.py
+├── data
+|   ├── saves
+└── assets
+    ├── world
+    │   ├── overworld.json
+    │   └── house.json
+    └── banner.txt

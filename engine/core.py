@@ -1,14 +1,15 @@
 import argparse
 from dataclasses import dataclass
 from typing import Dict
-
 from engine.commands import REGISTRY
 from engine.io import prompt, say
 from engine.persistence import save_state, load_state
 from engine.state import GameState, Location
 from game.scenes import build_world, normalize_key, spawn_key  # normalizzazione chiavi
 from game.scripting import on_bootstrap, on_tick
-
+from config import SETTINGS
+from engine.geo import Position
+from engine.io import render_proximity_block
 
 @dataclass
 class Context:
@@ -100,3 +101,37 @@ class Game:
         p.add_argument("--save", help="slot di salvataggio", default=None)
         p.add_argument("--debug", action="store_true")
         return p.parse_args()
+    
+def move_player(state, direction: str, meters: float | None = None) -> str:
+    DIRS = {"north": (0, 1), "south": (0, -1), "east": (1, 0), "west": (-1, 0)}
+    if direction not in DIRS:
+        return "Non capisco la direzione."
+
+    # inizializza posizione/energia se mancano (compat vecchi save)
+    if not hasattr(state.player, "pos"):
+        state.player.pos = Position(0.0, 0.0)
+    if not hasattr(state.player, "energy"):
+        state.player.energy = 10.0
+
+    dx, dy = DIRS[direction]
+    dist = meters if (meters and meters > 0) else SETTINGS["step_meters"]
+
+    # spostamento in metri
+    state.player.pos = Position(
+        state.player.pos.x + dx * dist,
+        state.player.pos.y + dy * dist
+    )
+
+    # costo energia proporzionale ai metri
+    spent = dist * SETTINGS["energy_per_meter"]
+    state.player.energy = max(0.0, state.player.energy - spent)
+
+    # tick del mondo se disponibile
+    if hasattr(state, "world") and hasattr(state.world, "ticks"):
+        state.world.ticks += 1
+
+    # messaggio di feedback + prossimità
+    md = int(dist)
+    prose = f"Ti muovi verso {direction} per circa {md} metri. Senti il fiato farsi più corto."
+    prox = render_proximity_block(state)
+    return prose if not prox else prose + "\n" + prox

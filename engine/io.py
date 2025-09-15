@@ -1,5 +1,9 @@
 import os
 
+# --- compat stub: ora la prossimità è gestita in engine/commands._proximity_lines ---
+def render_proximity_block(state) -> str:
+    return ""
+
 def print_banner():
     banner_path = os.path.join(os.path.dirname(__file__), "..", "assets", "banner.txt")
     banner_path = os.path.abspath(banner_path)

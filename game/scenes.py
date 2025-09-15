@@ -1,5 +1,110 @@
 import json, os, glob
 from engine.state import Location
+from functools import lru_cache
+
+_ASSETS_DIR = os.path.join("assets", "world")
+
+# --- PATCH: POI/landmark dai JSON di mappa -------------------------------
+
+def landmark_at(world: str, x: int, z: int) -> str | None:
+    """Ritorna il nome del landmark (bbox) che contiene (x,z), se esiste."""
+    data = _load_world_json(world)
+    for lm in data.get("landmarks", []):
+        bbox = lm.get("bbox")
+        if not bbox:
+            continue
+        if bbox["x0"] <= x <= bbox["x1"] and bbox["z0"] <= z <= bbox["z1"]:
+            return lm.get("name", lm.get("id", "landmark"))
+    return None
+
+def obstacle_at(world: str, x: int, z: int) -> str | None:
+    """
+    Ritorna il 'tipo' dell'ostacolo che occupa la cella (x,z), se presente.
+    I tuoi ostacoli sono rect stretti (linee-muro): basta testare l'inclusione.
+    Puoi aggiungere 'label' nel JSON per nomi più belli.
+    """
+    data = _load_world_json(world)
+    for ob in data.get("obstacles", []):
+        if ob.get("type") == "rect":
+            if ob["x0"] <= x <= ob["x1"] and ob["z0"] <= z <= ob["z1"]:
+                # se in futuro aggiungi "label", usala, altrimenti tipo
+                return ob.get("label") or ob.get("type")
+    return None
+
+# Se non l'hai ancora, questa interest_points unisce POI espliciti e landmark-centroid:
+def interest_points(world: str):
+    pts: list[tuple[int,int,int,str]] = []
+    pts.extend(_pois_from_json(world))             # opzionale, sezione "pois"
+    pts.extend(_landmark_centers_from_json(world)) # centroidi dei bbox
+    return pts
+
+@lru_cache(maxsize=None)
+def _load_world_json(world: str) -> dict:
+    """
+    Carica e cacha il file della mappa:
+      'overworld' -> assets/world/overworld.json
+      'house'     -> assets/world/house.json
+    """
+    path = os.path.join(_ASSETS_DIR, f"{world}.json")
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Mappa JSON non trovata: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _centroid_from_bbox(bbox: dict) -> tuple[int, int]:
+    """
+    Ritorna il centro (x,z) intero del rettangolo {x0,x1,z0,z1}.
+    """
+    x0, x1 = int(bbox["x0"]), int(bbox["x1"])
+    z0, z1 = int(bbox["z0"]), int(bbox["z1"])
+    cx = (x0 + x1) // 2
+    cz = (z0 + z1) // 2
+    return cx, cz
+
+def _pois_from_json(world: str) -> list[tuple[int,int,int,str]]:
+    """
+    Estrae POI “espliciti” dal JSON (sezione opzionale 'pois' con campi name,x,z[,y]).
+    Ritorna [(x,y,z,name)] in coordinate di CELLA.
+    """
+    data = _load_world_json(world)
+    fixed_y = int(data.get("meta", {}).get("fixed_y", 0))
+    out: list[tuple[int,int,int,str]] = []
+    for p in data.get("pois", []):
+        name = p.get("name", "POI")
+        x = int(p.get("x", 0))
+        z = int(p.get("z", 0))
+        y = int(p.get("y", fixed_y))
+        out.append((x, y, z, name))
+    return out
+
+def _landmark_centers_from_json(world: str) -> list[tuple[int,int,int,str]]:
+    """
+    Usa i LANDMARKS del JSON come punti d'interesse, piazzando il POI al CENTRO del bbox.
+    Ritorna [(x,y,z,name)] in CELLE.
+    """
+    data = _load_world_json(world)
+    fixed_y = int(data.get("meta", {}).get("fixed_y", 0))
+    out: list[tuple[int,int,int,str]] = []
+    for lm in data.get("landmarks", []):
+        name = lm.get("name", lm.get("id", "landmark"))
+        bbox = lm.get("bbox")
+        if not bbox: 
+            continue
+        cx, cz = _centroid_from_bbox(bbox)
+        out.append((int(cx), fixed_y, int(cz), name))
+    return out
+
+def interest_points(world: str):
+    """
+    Restituisce [(x, y, z, name), ...] in coordinate di CELLA per:
+      1) POI espliciti nel JSON (sezione 'pois', opzionale)
+      2) Centroidi dei LANDMARK (bbox) come “landmark-POI”
+    (Compatibile con cmd_where e con i messaggi di prossimità in commands.py)
+    """
+    pts: list[tuple[int,int,int,str]] = []
+    pts.extend(_pois_from_json(world))
+    pts.extend(_landmark_centers_from_json(world))
+    return pts
 
 # ========= Loader di tutte le mappe =========
 

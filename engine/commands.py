@@ -1,14 +1,18 @@
 from typing import Callable, Dict, List
+from math import hypot
+
 from engine.io import say
 from engine.state import Location
 from engine.journal import print_journal, log
 from engine.persistence import save_state, next_save_name
 from engine.combat import attack as attack_cmd  # opzionale
+from config import SETTINGS
+
 from game.scenes import (
     parse_key, make_key, ensure_location, in_bounds, is_passable,
     interest_points, try_portal, CELL_SIZE_METERS,
     world_display_name, portal_here, portals_around, neighbor_zone_transitions,
-    route_hint_to_landmark
+    route_hint_to_landmark, landmark_at, obstacle_at
 )
 
 # ---------------- Registry ----------------
@@ -35,6 +39,10 @@ REGISTRY = CommandRegistry()
 
 # ---------------- Helpers ----------------
 def _blocked_dirs(world: str, x: int, y: int, z: int) -> List[str]:
+    """
+    Restituisce le direzioni bloccate e, se possibile, il tipo di ostacolo.
+    Esempio: ['east (recinzione)', 'north (muro)'].
+    """
     blocked = []
     neigh = {
         "east":  (x+1, y, z),
@@ -44,8 +52,44 @@ def _blocked_dirs(world: str, x: int, y: int, z: int) -> List[str]:
     }
     for d, (nx, ny, nz) in neigh.items():
         if not in_bounds(nx, ny, nz, world) or not is_passable(nx, ny, nz, world):
-            blocked.append(d)
+            # prova a identificare l'ostacolo presente sulla cella di arrivo
+            reason = obstacle_at(world, nx, nz) or "ostacolo"
+            blocked.append(f"{d} ({reason})")
     return blocked
+
+def _proximity_lines(world: str, cx: int, cz: int) -> List[str]:
+    """
+    Avvisi di prossimità entro raggio in METRI, escludendo il landmark attuale.
+    """
+    radius_m = SETTINGS.get("proximity_radius_m", 40.0)
+    pts = interest_points(world) or []
+    if not pts:
+        return []
+
+    # Escludi il landmark in cui ti trovi
+    current_lm = landmark_at(world, cx, cz)
+
+    lines: List[str] = []
+    near: List[tuple[float, str]] = []  # (dist_m, name)
+
+    for (px, _py, pz, name) in pts:
+        # se il punto coincide col landmark in cui sei, non segnalarlo
+        if current_lm and name == current_lm:
+            continue
+        dx = (px - cx) * CELL_SIZE_METERS
+        dz = (pz - cz) * CELL_SIZE_METERS
+        dist_m = hypot(dx, dz)
+        if 0.0 < dist_m <= radius_m:
+            near.append((dist_m, name))
+
+    if not near:
+        return []
+
+    near.sort(key=lambda t: t[0])
+    for dist_m, name in near[:2]:
+        md = int(round(dist_m))
+        lines.append(f"Senti la presenza di **{name}** a circa {md} metri.")
+    return lines
 
 def _show_loc(ctx):
     loc = ensure_location(ctx.world, ctx.state.location_key)
@@ -108,6 +152,11 @@ def _show_loc(ctx):
             path_str = ", ".join(moves)
             say(f"Per raggiungere {hint['name']}: {path_str} (~{hint['steps']} passi).")
 
+    # --- HINT: Prossimità POI/Landmark (entro raggio in metri) ---
+    prox = _proximity_lines(world, x, z)
+    if prox:
+        for line in prox:
+            say(line)
 
 # ---------------- Comandi ----------------
 def cmd_help(ctx, *args):
@@ -123,14 +172,20 @@ def cmd_go(ctx, *args):
     go <dir> [steps]
       dir: east|west|north|south (alias e/w/n/s)
       steps: intero positivo (default 1)
+
+    Effetti:
+      - Muove di 'steps' celle (clamp su ostacoli e bordi)
+      - Consumo energia ∝ metri percorsi (CELL_SIZE_METERS * steps * SETTINGS['energy_per_meter'])
+      - Journal: log del movimento e, se varchi un confine, 'entra in <landmark>'
+      - Se bloccato: messaggio con il tipo di ostacolo
     """
     if not args:
         say("Andare dove?")
         return
 
-    aliases = {"e":"east","w":"west","n":"north","s":"south"}
+    aliases = {"e": "east", "w": "west", "n": "north", "s": "south"}
     d = aliases.get(args[0].lower(), args[0].lower())
-    if d not in ("east","west","north","south"):
+    if d not in ("east", "west", "north", "south"):
         say("Direzione sconosciuta. Usa east/west/north/south (o e/w/n/s).")
         return
 
@@ -145,25 +200,56 @@ def cmd_go(ctx, *args):
     dx = 1 if d == "east" else -1 if d == "west" else 0
     dz = 1 if d == "north" else -1 if d == "south" else 0
 
+    # Stato iniziale (manteniamo world e cy da qui per evitare UnboundLocalError)
     world, cx, cy, cz = parse_key(ctx.state.location_key)
+    prev_landmark = landmark_at(world, cx, cz)
+
     moved = 0
     for _ in range(steps):
         nx, ny, nz = cx + dx, cy, cz + dz
         if not in_bounds(nx, ny, nz, world) or not is_passable(nx, ny, nz, world):
+            # Bloccato: spiega cos'è l'ostacolo (se rilevabile)
+            reason = obstacle_at(world, nx, nz) or "ostacolo"
+            if moved == 0:
+                say(f"Qualcosa ti sbarra la strada ({reason}).")
+            else:
+                say(f"Non puoi proseguire ({reason}). Ti fermi dopo {moved} passi.")
             break
         cx, cz = nx, nz
         moved += 1
 
+    # Se non ti sei mosso, esci (abbiamo già scritto il motivo sopra)
+    if moved == 0:
+        return
+
+    # Aggiorna posizione (world e cy rimangono quelli iniziali)
     ctx.state.location_key = make_key(world, cx, cy, cz)
     ensure_location(ctx.world, ctx.state.location_key)
 
-    if moved == 0:
-        say("Qualcosa ti sbarra la strada.")
-    else:
-        metri = moved * CELL_SIZE_METERS
-        say(f"Ti muovi verso {d} per {moved} passi (~{metri} m).")
-        log(ctx, f"Frank si muove {d} di {moved} passi (~{metri} m).")
+    # Consumo energia proporzionale ai METRI percorsi
+    metri = moved * CELL_SIZE_METERS
+    epm = SETTINGS.get("energy_per_meter", 0.02)  # default sicuro
+    spent = metri * epm
 
+    p = ctx.state.player
+    before = getattr(p, "energy", 10.0)
+    after = max(0.0, before - spent)
+    p.energy = after
+
+    # Feedback al player
+    say(f"Ti muovi verso {d} per {moved} passi (~{metri} m).")
+    # Se vuoi visualizzare anche l'impatto energetico, sblocca la riga sotto:
+    # say(f"Ti senti più affaticato: Energia {before:.1f} → {after:.1f} (−{spent:.1f}).")
+
+    # Journal: movimento
+    log(ctx, f"Frank si muove {d} di {moved} passi (~{metri} m). Energia {before:.2f}→{after:.2f} (−{spent:.2f}).")
+
+    # Journal: ingresso in nuovo landmark (se varcato confine)
+    new_landmark = landmark_at(world, cx, cz)
+    if new_landmark and new_landmark != prev_landmark:
+        log(ctx, f"Frank entra in {new_landmark}.")
+
+    # Mostra la nuova location (con hint, prossimità, etc.)
     _show_loc(ctx)
 
 def cmd_enter(ctx, *args):
@@ -209,7 +295,7 @@ def cmd_inventory(ctx, *args):
 
 def cmd_stats(ctx, *args):
     p = ctx.state.player
-    say(f"Stats -> Health: {p.health}, Energy: {p.energy}, Morale: {p.morale}")
+    say(f"Stats -> Health: {p.health}, Energy: {p.energy:.1f}, Morale: {p.morale}")
 
 def cmd_talk(ctx, *args):
     target = (args[0].lower() if args else "").strip()

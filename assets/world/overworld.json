@@ -1,0 +1,52 @@
+{
+    "meta": {
+    "id": "overworld",
+    "name": "Foresta",
+    "size": { "x": 300, "z": 300 },
+    "fixed_y": 150,
+    "cell_size_m": 2,
+    "spawn": [150, 150, 150]
+    },
+
+    "landmarks": [
+    {
+        "id": "foresta",
+        "name": "Foresta Infinita",
+        "desc": "Pini e ombre ovunque. Il vento mastica resina.",
+        "bbox": { "x0": 0, "x1": 299, "z0": 0, "z1": 299 }
+    },
+    {
+        "id": "radura",
+        "name": "Radura Luminosa",
+        "desc": "Un'apertura ampia nella foresta: luce piena, cerchi di pietre annerite.",
+        "bbox": { "x0": 140, "x1": 160, "z0": 200, "z1": 220 },
+        "items": {}
+    },
+    {
+        "id": "casa_giardino",
+        "name": "Casa — Giardino",
+        "desc": "Erba alta, attrezzi marci, odore di legno bagnato.",
+        "bbox": { "x0": 188, "x1": 195, "z0": 144, "z1": 156 }
+    },
+    {
+        "id": "casa_facciata",
+        "name": "Casa — Facciata",
+        "desc": "Portico coperto d'edera; l'ingresso è lì, consumato dal tempo.",
+        "bbox": { "x0": 196, "x1": 196, "z0": 146, "z1": 154 }
+    }
+    ],
+
+    "obstacles": [
+    { "type": "rect", "y": 150, "x0": 196, "x1": 206, "z0": 146, "z1": 146 },
+    { "type": "rect", "y": 150, "x0": 196, "x1": 206, "z0": 154, "z1": 154 },
+    { "type": "rect", "y": 150, "x0": 196, "x1": 196, "z0": 146, "z1": 154 },
+    { "type": "rect", "y": 150, "x0": 206, "x1": 206, "z0": 146, "z1": 154 }
+    ],
+
+    "portals": [
+    {
+        "from": { "x": 195, "z": 150 },
+        "to":   { "world": "house", "x": 3, "z": 5 }
+    }
+    ]
+}

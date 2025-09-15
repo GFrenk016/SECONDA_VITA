@@ -1,0 +1,40 @@
+{
+    "meta": {
+        "id": "house",
+        "name": "Casa Abbandonata — Interno",
+        "size": { "x": 20, "z": 12 },
+        "fixed_y": 150,
+        "cell_size_m": 2,
+        "spawn": [3, 150, 5]
+    },
+
+    "landmarks": [
+        {
+        "id": "interno",
+        "name": "Casa — Interno",
+        "desc": "Polvere e ombre danzano tra travi spezzate. Passi che scricchiolano.",
+        "bbox": { "x0": 1, "x1": 18, "z0": 1, "z1": 10 },
+        "items": { "foto": 1 }
+        },
+        {
+        "id": "atrio",
+        "name": "Casa — Atrio",
+        "desc": "Ingresso stretto; la porta cigola a ogni respiro.",
+        "bbox": { "x0": 2, "x1": 4, "z0": 4, "z1": 6 }
+        }
+    ],
+
+    "obstacles": [
+        { "type": "rect", "y": 150, "x0": 0,  "x1": 19, "z0": 0,  "z1": 0  },
+        { "type": "rect", "y": 150, "x0": 0,  "x1": 19, "z0": 11, "z1": 11 },
+        { "type": "rect", "y": 150, "x0": 0,  "x1": 0,  "z0": 0,  "z1": 11 },
+        { "type": "rect", "y": 150, "x0": 19, "x1": 19, "z0": 0,  "z1": 11 }
+    ],
+
+    "portals": [
+        {
+        "from": { "x": 3, "z": 5 },
+        "to":   { "world": "overworld", "x": 195, "z": 150 }
+        }
+    ]
+}

@@ -14,14 +14,15 @@ class Location:
     key: str
     name: str
     desc: str
-    exits: Dict[str, str]  # direction -> location key
+    exits: Dict[str, str]  # direction -> next location key
     items: Dict[str, int] = field(default_factory=dict)  # item -> qty
 
 @dataclass
 class GameState:
     tick: int = 0
     player: Player = field(default_factory=Player)
-    location_key: str = "foresta"
+    # Lasciare vuoto: verrà normalizzato da engine.core.bootstrap
+    location_key: str = ""
     flags: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -48,6 +49,6 @@ class GameState:
         st.player.health = p.get("health", 100)
         st.player.energy = p.get("energy", 100)
         st.player.morale = p.get("morale", 100)
-        st.location_key = data.get("location_key", "foresta")
+        st.location_key = data.get("location_key", "")
         st.flags = data.get("flags", {})
         return st

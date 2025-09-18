@@ -37,15 +37,6 @@ class Game:
         self.ctx.current_slot = None
         self.ctx.flags = {}                      # opzionale: se lo usi altrove
 
-        # combat clock in background (se l’hai messo)
-        import threading, time
-        from engine.combat import combat_tick
-        self._combat_stop = threading.Event()
-        self._combat_clock = threading.Thread(
-            target=_combat_clock_loop, args=(self.ctx, self._combat_stop), daemon=True
-        )
-        self._combat_clock.start()
-
     # ---------------- Boot ----------------
     def bootstrap(self, initial_state: GameState | None = None, slot_name: str | None = None):
         """
@@ -71,6 +62,15 @@ class Game:
 
         # Hook di bootstrap (messaggi iniziali ecc.)
         on_bootstrap(self.ctx)
+
+        # Avvia il combat clock in background dopo che ctx è pronto
+        import threading
+        self._combat_stop = threading.Event()
+        self._combat_clock = threading.Thread(
+            target=_combat_clock_loop, args=(self.ctx, self._combat_stop), daemon=True
+        )
+        self._combat_clock.start()
+
 
     # ---------------- Internals ----------------
     # engine/core.py  (dentro la classe Game)

@@ -5,8 +5,9 @@ SETTINGS = {
     "prompt": "> ",
 
     # --- Combat (Telltale-like) ---
+    "debug_combat": True,
     "combat_attack_interval_s": 5.0,  # ogni N secondi il walker parte all'attacco
-    "combat_qte_time_s": 3.0,         # tempo per digitare la sequenza di QTE
+    "combat_qte_time_s": 5,         # tempo per digitare la sequenza di QTE
     "combat_qte_len_min": 3,
     "combat_qte_len_max": 4,
     "combat_qte_charset": "WASD123",  # lettere/numeri semplici

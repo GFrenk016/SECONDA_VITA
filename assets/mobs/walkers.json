@@ -1,0 +1,13 @@
+{
+  "type": "walker",
+  "mobs": [
+    {
+      "id": "shambler",
+      "name": "Walker barcollante",
+      "desc": "Un vagante lento, geme senza sosta.",
+      "health": 4,
+      "attack_damage": 1,
+      "spawn_chance": 0.7
+    }
+  ]
+}

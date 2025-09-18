@@ -1,0 +1,45 @@
+{
+  "type": "melee",
+  "weapons": [
+    {
+      "id": "knife",
+      "name": "Coltello",
+      "desc": "Un vecchio coltello da cucina, lama consumata ma ancora letale.",
+      "damage": 2,
+      "energy_cost": 0.3,
+      "hit_bonus": 0.1,
+      "crit_chance": 0.05,
+      "durability": 20
+    },
+    {
+      "id": "bat",
+      "name": "Mazza da baseball",
+      "desc": "Scheggiata, ma fa il suo lavoro se miri bene.",
+      "damage": 1,
+      "energy_cost": 0.4,
+      "hit_bonus": 0.0,
+      "crit_chance": 0.05,
+      "durability": 25
+    },
+    {
+      "id": "axe",
+      "name": "Ascia da legna",
+      "desc": "Pesante, devastante contro i cranî, ma stanca in fretta.",
+      "damage": 3,
+      "energy_cost": 0.6,
+      "hit_bonus": 0.15,
+      "crit_chance": 0.1,
+      "durability": 15
+    },
+    {
+      "id": "pipe",
+      "name": "Tubo di ferro",
+      "desc": "Arrugginito, pesante, efficace contro teste molli.",
+      "damage": 2,
+      "energy_cost": 0.5,
+      "hit_bonus": -0.05,
+      "crit_chance": 0.05,
+      "durability": 30
+    }
+  ]
+}

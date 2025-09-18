@@ -1,4 +1,5 @@
 import argparse
+import threading, time
 from dataclasses import dataclass
 from typing import Dict
 from engine.commands import REGISTRY
@@ -10,6 +11,11 @@ from game.scripting import on_bootstrap, on_tick
 from config import SETTINGS
 from engine.geo import Position
 from engine.io import render_proximity_block
+from engine.combat import in_combat, combat_idle_tick, combat_tick
+from types import SimpleNamespace
+
+ALLOWED_IN_COMBAT = {"attack", "push", "flee", "stats", "inventory", "help", "qte"}
+ALLOWED_DURING_QTE = {"qte", "help", "stats", "inventory"}
 
 @dataclass
 class Context:
@@ -20,9 +26,25 @@ class Context:
 
 
 class Game:
-    def __init__(self, settings: dict):
+    def __init__(self, settings):
         self.settings = settings
-        self.ctx: Context | None = None
+
+        # ctx minimale: state, world (riempito da scenes), prompt, slot, rng
+        self.ctx = SimpleNamespace()
+        self.ctx.state = GameState()             # usa il costruttore che hai già
+        self.ctx.world = {}                      # verrà usato da game.scenes/ensure_location
+        self.ctx.prompt = settings.get("prompt", "> ")
+        self.ctx.current_slot = None
+        self.ctx.flags = {}                      # opzionale: se lo usi altrove
+
+        # combat clock in background (se l’hai messo)
+        import threading, time
+        from engine.combat import combat_tick
+        self._combat_stop = threading.Event()
+        self._combat_clock = threading.Thread(
+            target=_combat_clock_loop, args=(self.ctx, self._combat_stop), daemon=True
+        )
+        self._combat_clock.start()
 
     # ---------------- Boot ----------------
     def bootstrap(self, initial_state: GameState | None = None, slot_name: str | None = None):
@@ -50,35 +72,75 @@ class Game:
         # Hook di bootstrap (messaggi iniziali ecc.)
         on_bootstrap(self.ctx)
 
-    # ---------------- Main loop ----------------
-    def loop(self):
-        assert self.ctx is not None
-        say("Digita 'help' per i comandi (in inglese).")
-        while True:
-            raw = prompt(self.settings.get("prompt", "> "))
-            if not raw:
-                continue
-
-            low = raw.lower().strip()
-            if low in ("exit", "quit"):
-                say("Fine. La notte trattiene il respiro.")
-                break
-
-            self._dispatch_command(raw)
-            if self._should_return_to_menu():
-                # il menù esterno (main.py) intercetterà la fine del loop
-                break
-
-            self._tick()
-
     # ---------------- Internals ----------------
-    def _dispatch_command(self, raw: str):
-        token, *args = raw.strip().split()
+    # engine/core.py  (dentro la classe Game)
+    
+    def _dispatch_command(self, raw: str) -> None:
+        """
+        Legge una riga di input, risolve il comando e lo esegue.
+        - Supporta argomenti con virgolette (shlex)
+        - In combat con QTE: consente solo 'qte', 'help', 'stats', 'inventory'
+        - In combat normale: consente solo {attack, push, flee, qte, stats, inventory, help}
+        - Error handling senza far crashare il gioco
+        - Dopo l'esecuzione fa ticcare il timer del combat
+        """
+        import shlex
+        from engine.io import say
+        from engine.commands import REGISTRY
+        from engine.combat import in_combat, combat_tick
+
+        # whitelist locali per evitare dipendenze globali
+        ALLOWED_IN_COMBAT = {"attack", "push", "flee", "qte", "stats", "inventory", "help"}
+        ALLOWED_DURING_QTE = {"qte", "help", "stats", "inventory"}
+
+        line = (raw or "").strip()
+        if not line:
+            # anche a input vuoto, il timer deve poter avanzare nel loop esterno
+            return
+
+        # tokenizzazione robusta
+        try:
+            parts = shlex.split(line)
+        except ValueError:
+            parts = line.split()
+
+        if not parts:
+            return
+
+        token = parts[0].lower()
+        args = parts[1:]
+
+        # Guardie combat/QTE
+        if in_combat(self.ctx):
+            qte_active = bool(self.ctx.state.flags.get("qte_active", False))
+            if qte_active:
+                if token not in ALLOWED_DURING_QTE:
+                    say("Sei bloccato! Libérati prima: usa 'qte <sequenza>'.")
+                    return
+            else:
+                if token not in ALLOWED_IN_COMBAT:
+                    say("Sei in lotta! Puoi: attack / push / flee / qte / stats / inventory / help.")
+                    return
+
+        # Risolvi comando
         fn = REGISTRY.resolve(token)
         if fn is None:
-            say("Unknown command. Type 'help'.")
+            say(f"Comando sconosciuto: '{token}'. Prova 'help'.")
             return
-        fn(self.ctx, *args)
+
+        # Esegui + gestione timer post-azione
+        try:
+            fn(self.ctx, *args)
+            # dopo l'esecuzione, aggiorna il timer del combat (attacchi automatici/QTE)
+            combat_tick(self.ctx)
+        except Exception as e:
+            # log soft-fail
+            try:
+                from engine.journal import log
+                log(self.ctx, f"Errore comando '{token}': {e}")
+            except Exception:
+                pass
+            say("Qualcosa va storto. (errore comando)")
 
     def _tick(self):
         self.ctx.state.tick += 1
@@ -101,6 +163,19 @@ class Game:
         p.add_argument("--save", help="slot di salvataggio", default=None)
         p.add_argument("--debug", action="store_true")
         return p.parse_args()
+
+    def loop(self):
+        from engine.io import prompt_line
+        while True:
+            raw = prompt_line(self.ctx)
+            if raw is None:
+                break
+            self._dispatch_command(raw)
+            if self.ctx.state.flags.get("return_to_menu"):
+                break
+        # chiusura pulita del clock
+        if hasattr(self, "_combat_stop"):
+            self._combat_stop.set()
     
 def move_player(state, direction: str, meters: float | None = None) -> str:
     DIRS = {"north": (0, 1), "south": (0, -1), "east": (1, 0), "west": (-1, 0)}
@@ -135,3 +210,13 @@ def move_player(state, direction: str, meters: float | None = None) -> str:
     prose = f"Ti muovi verso {direction} per circa {md} metri. Senti il fiato farsi più corto."
     prox = render_proximity_block(state)
     return prose if not prox else prose + "\n" + prox
+
+def _combat_clock_loop(ctx, stop_evt: "threading.Event"):
+    """Tic periodico: fa avanzare QTE/attacchi anche se l'utente non digita."""
+    while not stop_evt.is_set():
+        try:
+            combat_tick(ctx)
+        except Exception:
+            pass
+        time.sleep(0.2)  # 200ms
+

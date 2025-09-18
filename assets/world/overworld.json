@@ -14,7 +14,9 @@
         "name": "Foresta Infinita",
         "desc": "Pini e ombre ovunque. Il vento mastica resina.",
         "bbox": { "x0": 0, "x1": 299, "z0": 0, "z1": 299 },
-        "items": {"coltello": 1}
+        "items": {
+            "knife": 1
+        }
     },
     {
         "id": "radura",

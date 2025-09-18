@@ -122,8 +122,6 @@ Comandi & dialoghi: ENG
 
 [X] Dispatch corretto funzione → comando
 
-[] Priorità/stack comandi multipli (macro, alias complessi)
-
 ⚙️ Engine
 
 [X] Game loop (input → parse → exec → autosave)
@@ -159,6 +157,7 @@ Comandi & dialoghi: ENG
 🗡 Modules agganciati allo State
 
 [X] Combat (spawn walker + comando attack)
+     "migliorato"
 
 [X] Events (random atmosferici o incontri)
 

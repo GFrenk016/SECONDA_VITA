@@ -1,4 +1,74 @@
-# 📝 Changelog — Versione Alpha 0.3B
+#  Patch Notes - Versione Alpha 0.4A
+
+🌍 World & Movement
+
+[✔] POI detection: se sei vicino a un landmark (<40m) viene segnalato.
+
+[✔] Energy drain: muovendoti consumi energia proporzionale ai metri.
+
+[✔] Fix: se sei già dentro un POI, non mostra più il messaggio “Senti la presenza di …”.
+
+🧭 Commands
+
+[✔] go migliorato:
+
+correzione bug su world non definito.
+
+mostra ostacoli vicini (con nome).
+
+[✔] scan sostituisce look: rivela POI e items vicini entro raggio, con nomi umani.
+
+[✔] take ora mostra il nome leggibile (“Coltello” invece di “knife”).
+
+[✔] where rifinito: trova landmark più vicino con direzione e stima passi.
+
+🗃 Assets & Data
+
+[✔] Creata struttura in assets/ per:
+
+weapons/ → JSON con armi melee (es. knife, baseball bat).
+
+mobs/ → JSON con mob base (walker/vagante).
+
+[✔] Mappe (overworld.json) ora possono spawnare items collegati a weapon JSON.
+
+⚔️ Combat System (base)
+
+[✔] Comandi: attack, push, flee, spawn.
+
+[✔] Banner “COMBAT” all’ingresso.
+
+[✔] Equip system: puoi equip <arma> per usarla negli attacchi.
+
+[✔] Regole arma:
+
+Coltello = one-shot kill.
+
+Pugni = non uccidono, walker resta a 1 HP.
+
+Armi hanno durabilità, energy_cost, crit chance.
+
+[✔] QTE system (Telltale-like):
+
+walker attacca dopo un intervallo (combat_attack_interval_s).
+
+quando ti afferra → appare sequenza da digitare: qte WASD.
+
+se fallisci entro il tempo → morso automatico.
+
+finché sei bloccato in QTE, attack/push/flee sono disabilitati.
+
+[✔] Timer di reset: dopo ogni azione, next_attack_at si aggiorna.
+
+🛠 Refactor / Fix
+
+[✔] _dispatch_command riscritto con whitelist combat/QTE, gestione errori pulita.
+
+[✔] Game.loop aggiornato con hook per combat_tick (anche se input fermo → da completare con thread/async).
+
+[✔] Fix messaggi di log: ora nel journal compaiono eventi coerenti (“entra in un POI”, “walker colpito”, ecc.).
+
+#  Patch notes — Versione Alpha 0.3B
 ✨ Added
 
 Energy system migliorato:

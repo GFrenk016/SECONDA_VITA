@@ -1,9 +1,11 @@
-from engine.events import run_events
+from engine.io import say
+from engine.combat import try_spawn_walker_from_noise
 
-def run_director(ctx):
-    """
-    Punto centrale per orchestrare cosa succede a ogni tick,
-    prima/dopo i moduli futuri (scelte, relazioni, ecc.).
-    """
-    # In futuro: ordine, priorità, gating su flags/stats
-    run_events(ctx)
+def on_noise(ctx, score: int):
+    if score >= 2:
+        say("Un fruscio distante risponde al tuo passo affrettato…")
+    try_spawn_walker_from_noise(ctx, score)
+
+def on_exposure(ctx, ticks: int):
+    # futuro: aumentare leggermente il rischio se si riposa a lungo
+    pass

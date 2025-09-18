@@ -1,4 +1,5 @@
 import json, os, glob
+import math
 from engine.state import Location
 from functools import lru_cache
 
@@ -440,3 +441,81 @@ def try_portal(key: str) -> str | None:
 
 # ========= Esport util singoli =========
 CELL_SIZE_METERS = DEFAULT_CELL_M
+
+# --- PATCH: trova item vicini nel raggio (metri) -------------------------
+
+def _cell_size_m(world: str) -> float:
+    data = _load_world_json(world)
+    return float(data.get("meta", {}).get("cell_size_m", 1.0))
+
+def _dist_cells_to_bbox(cx: int, cz: int, bbox: dict) -> float:
+    """Distanza (in CELLE) dal punto (cx,cz) al rettangolo bbox {x0,x1,z0,z1} (0 se dentro)."""
+    dx = 0.0
+    if cx < bbox["x0"]:
+        dx = bbox["x0"] - cx
+    elif cx > bbox["x1"]:
+        dx = cx - bbox["x1"]
+    dz = 0.0
+    if cz < bbox["z0"]:
+        dz = bbox["z0"] - cz
+    elif cz > bbox["z1"]:
+        dz = cz - bbox["z1"]
+    return math.hypot(dx, dz)
+
+def find_items_in_radius(world: str, cx: int, cz: int, radius_m: float):
+    """
+    Ritorna lista di tuple (dist_m, item_id, qty, container_name)
+    cercando item nei LANDMARK che hanno 'items' nel JSON.
+    Distanza = minima distanza dal bbox del landmark (0 se sei dentro).
+    """
+    data = _load_world_json(world)
+    cs = _cell_size_m(world)
+    out = []
+    for lm in data.get("landmarks", []):
+        items = lm.get("items", {})
+        if not items:
+            continue
+        bbox = lm.get("bbox")
+        if not bbox:
+            continue
+        dist_cells = _dist_cells_to_bbox(cx, cz, bbox)
+        dist_m = dist_cells * cs
+        if dist_m <= radius_m:
+            name = lm.get("name", lm.get("id", "area"))
+            for item_id, qty in items.items():
+                out.append((dist_m, str(item_id), int(qty), name))
+    out.sort(key=lambda t: t[0])
+    return out
+
+# --- LIVE ITEMS RADIUS (usa lo stato, non i JSON fissi) -------------------
+def find_items_in_radius_live(ctx, radius_m: float):
+    """
+    Ritorna [(dist_m, item_id, qty, x, z)] cercando negli stati Location
+    attorno al player entro raggio (in metri). Così gli item già presi spariscono.
+    """
+    from game.scenes import ensure_location, parse_key, CELL_SIZE_METERS
+    import math
+
+    world, cx, cy, cz = parse_key(ctx.state.location_key)
+    r_cells = int(math.ceil(radius_m / CELL_SIZE_METERS))
+    found = {}
+
+    for x in range(cx - r_cells, cx + r_cells + 1):
+        for z in range(cz - r_cells, cz + r_cells + 1):
+            dxm = (x - cx) * CELL_SIZE_METERS
+            dzm = (z - cz) * CELL_SIZE_METERS
+            dist = (dxm*dxm + dzm*dzm) ** 0.5
+            if dist > radius_m:
+                continue
+            loc = ensure_location(ctx.world, make_key(world, x, cy, z))
+            if not getattr(loc, "items", None):
+                continue
+            for item_id, qty in loc.items.items():
+                if qty <= 0:
+                    continue
+                key = (item_id, x, z)
+                # se più celle hanno lo stesso item, mantieni la più vicina
+                if key not in found or dist < found[key][0]:
+                    found[key] = (dist, item_id, qty, x, z)
+
+    return sorted(found.values(), key=lambda t: t[0])

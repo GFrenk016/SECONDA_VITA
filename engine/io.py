@@ -16,5 +16,16 @@ def print_banner():
 def say(text: str):
     print(text)
 
+def prompt_line(ctx):
+    """
+    Mostra il prompt e legge una riga dall’utente.
+    Ritorna None se EOF (Ctrl+Z/Ctrl+D).
+    """
+    prompt = getattr(ctx, "prompt", "> ") if hasattr(ctx, "prompt") else "> "
+    try:
+        return input(prompt)
+    except EOFError:
+        return None
+
 def prompt(sign="> "):
     return input(sign)

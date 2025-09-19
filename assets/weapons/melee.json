@@ -9,7 +9,19 @@
       "energy_cost": 0.3,
       "hit_bonus": 0.1,
       "crit_chance": 0.05,
-      "durability": 20
+      "durability": 20,
+      "kill_msg": [
+        "La lama trapassa l’orbita oculare, il cervello si spappola: il walker crolla come un sacco di carne.",
+        "Affondi il coltello nella tempia, senti l’osso cedere: il mostro si accascia senza vita.",
+        "Il coltello squarcia la gola, sangue nero schizza ovunque: il walker si affloscia rantolando.",
+        "Spingi la lama sotto il mento, senti il cranio spezzarsi: il walker si spegne all’istante."
+      ],
+      "hit_msg": [
+        "Affondi il coltello: la lama strappa brandelli di carne marcia.",
+        "Il coltello incide profondo, il walker emette un rantolo gutturale.",
+        "La lama scivola tra le ossa, il walker si contorce (HP {hp}).",
+        "Un fendente che lacera muscoli e tendini, ma il walker resiste."
+      ]
     },
     {
       "id": "bat",
@@ -19,7 +31,19 @@
       "energy_cost": 0.4,
       "hit_bonus": 0.0,
       "crit_chance": 0.05,
-      "durability": 25
+      "durability": 25,
+      "kill_msg": [
+        "La mazza sbriciola il cranio, materia cerebrale schizza ovunque: il walker si affloscia.",
+        "Un colpo violento, il cranio si apre come un melone: il mostro crolla.",
+        "La mazza spezza mascella e denti, il walker cade con un rantolo strozzato.",
+        "Un crack disgustoso, il sangue nero imbratta tutto: il walker non si rialza più."
+      ],
+      "hit_msg": [
+        "Colpisci con la mazza: ossa si spezzano, il walker vacilla.",
+        "La mazza affonda nella carne molle, il walker urla senza voce.",
+        "Un colpo che fa schizzare denti e sangue (HP {hp}).",
+        "La mazza lascia un solco sanguinolento."
+      ]
     },
     {
       "id": "axe",
@@ -29,7 +53,19 @@
       "energy_cost": 0.6,
       "hit_bonus": 0.15,
       "crit_chance": 0.1,
-      "durability": 15
+      "durability": 15,
+      "kill_msg": [
+        "L’ascia si pianta nel cranio, la testa si divide in due: il walker crolla inerte.",
+        "Un colpo d’ascia che recide la spina dorsale: il mostro si affloscia come una marionetta.",
+        "La lama affonda fino all’elsa, il walker si abbatte con un rantolo bestiale.",
+        "L’ascia spappola la faccia, sangue e ossa ovunque: il nemico si spegne."
+      ],
+      "hit_msg": [
+        "L’ascia fende carne e osso, il walker barcolla grondando sangue.",
+        "Colpo d’ascia che lacera muscoli e tendini, il walker urla muto.",
+        "L’ascia incide profondamente, spruzzi neri ovunque (HP {hp}).",
+        "Un fendente che lascia la carne a brandelli, ma il walker resiste."
+      ]
     },
     {
       "id": "pipe",
@@ -39,7 +75,19 @@
       "energy_cost": 0.5,
       "hit_bonus": -0.05,
       "crit_chance": 0.05,
-      "durability": 30
+      "durability": 30,
+      "kill_msg": [
+        "Il tubo fracassa il cranio, il cervello cola fuori: il walker si affloscia.",
+        "Un colpo di ferro che spappola la faccia: il mostro crolla senza più lineamenti.",
+        "Il tubo spezza la colonna vertebrale, il walker cade come una carcassa.",
+        "Un tonfo metallico, ossa e sangue schizzano: il walker non si rialza."
+      ],
+      "hit_msg": [
+        "Colpo di tubo: denti e sangue schizzano, il walker vacilla.",
+        "Il tubo affonda nella carne, il walker si piega urlando.",
+        "Un colpo che fa scricchiolare le ossa (HP {hp}).",
+        "Il tubo lascia un solco sanguinolento e profondo."
+      ]
     }
   ]
 }

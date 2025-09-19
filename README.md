@@ -210,6 +210,9 @@ Comandi & dialoghi: ENG
 ├── config.py
 ├── main.py
 ├── engine
+|   ├── proximity.py
+|   ├── geo.py
+|   ├── assets.py
 |   ├── combat.py
 │   ├── core.py
 │   ├── commands.py
@@ -228,6 +231,12 @@ Comandi & dialoghi: ENG
 ├── data
 |   ├── saves
 └── assets
+    ├── mobs
+    |   ├── humans.json
+    |   └── walkers.json
+    ├── weapons
+    |   ├── melee.json
+    |   └── ranged.json
     ├── world
     │   ├── overworld.json
     │   └── house.json

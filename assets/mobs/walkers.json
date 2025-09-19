@@ -8,6 +8,22 @@
       "health": 4,
       "attack_damage": 1,
       "spawn_chance": 0.7
+    },
+    {
+      "id": "brute",
+      "name": "Walker massiccio",
+      "desc": "Un colosso deforme, muscoli gonfi e mascella slogata.",
+      "health": 8,
+      "attack_damage": 3,
+      "spawn_chance": 0.2
+    },
+    {
+      "id": "crawler",
+      "name": "Walker strisciante",
+      "desc": "Trascina le viscere, artigli affilati e sguardo famelico.",
+      "health": 3,
+      "attack_damage": 2,
+      "spawn_chance": 0.1
     }
   ]
 }

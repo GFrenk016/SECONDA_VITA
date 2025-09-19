@@ -1,3 +1,4 @@
+
 from typing import Callable, Dict, List
 from math import hypot
 from config import SETTINGS
@@ -507,9 +508,9 @@ def cmd_rest(ctx, *args):
             
 def cmd_spawn(ctx, *args):
     """
-    spawn [mob_id]
-      - Forza lo spawn di un mob (per ora walkers).
-      - Default: 'shambler'.
+    spawn [mob_id] [quantità]
+      - Forza lo spawn di uno o più mob (walkers).
+      - Default: 'shambler' x1.
       - Se sei già in combat, non spawna.
     """
     if in_combat(ctx):
@@ -518,13 +519,24 @@ def cmd_spawn(ctx, *args):
 
     walkers = load_walkers()
     mob_id = (args[0].lower() if args else "shambler")
+    try:
+        qty = int(args[1]) if len(args) > 1 else 1
+    except Exception:
+        qty = 1
     if mob_id not in walkers:
-        # feedback utile: lista disponibili
         available = ", ".join(sorted(walkers.keys()))
         say(f"Mob '{mob_id}' non trovato. Disponibili: {available}")
         return
-
-    enter_combat_with_walker(ctx, mob_id=mob_id)
+    if qty < 1:
+        say("La quantità deve essere almeno 1.")
+        return
+    # Fix: se mob_id è già una lista, non moltiplicare
+    if isinstance(mob_id, list):
+        mob_ids = mob_id
+    else:
+        mob_ids = [mob_id] * qty
+    enter_combat_with_walker(ctx, mob_ids=mob_ids)
+    say(f"Spawnati {len(mob_ids)} {walkers[mob_id]['name']}(s).")
 
 def cmd_equip(ctx, *args):
     """
@@ -591,6 +603,48 @@ def cmd_flee(ctx, *args):
 def cmd_qte(ctx, *args):
     from engine import combat as _combat
     _combat.qte_input(ctx, *args)
+    
+def cmd_give(ctx, *args):
+    """
+    Comando: give [categoria] [id] [quantità]
+    Esempio: give melee knife 2
+    """
+    if len(args) < 2:
+        say("Uso: give [categoria] [id] [quantità]")
+        return
+
+    category = args[0].lower()
+    item_id = args[1].lower()
+    try:
+        qty = int(args[2]) if len(args) > 2 else 1
+    except ValueError:
+        say("Quantità non valida.")
+        return
+    if qty < 1:
+        say("La quantità deve essere almeno 1.")
+        return
+
+    # Supporta solo alcune categorie per ora
+    if category == "melee":
+        from engine.assets import load_melee_weapons
+        items = load_melee_weapons()
+    elif category == "walker":
+        from engine.assets import load_walkers
+        items = load_walkers()
+    else:
+        say(f"Categoria '{category}' non supportata.")
+        return
+
+    if item_id not in items:
+        say(f"Nessun oggetto '{item_id}' nella categoria '{category}'.")
+        return
+
+    inv = ctx.state.player.inventory
+    inv[item_id] = inv.get(item_id, 0) + qty
+    say(f"Ricevuto: {item_id} x{qty}.")
+
+    # Log per debug
+    log(ctx, f"Comando give: {item_id} x{qty} (cat: {category})")
 
 # ---------------- Registrazione ----------------
 REGISTRY.register("help", cmd_help, aliases=["h", "?"])
@@ -612,3 +666,4 @@ REGISTRY.register("equip", cmd_equip)
 REGISTRY.register("push", cmd_push)
 REGISTRY.register("flee", cmd_flee)
 REGISTRY.register("qte", cmd_qte)
+REGISTRY.register("give", cmd_give)

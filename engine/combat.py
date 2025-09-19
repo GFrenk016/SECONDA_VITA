@@ -27,8 +27,8 @@ def in_combat(ctx) -> bool:
 def _set_combat(ctx, active: bool):
     ctx.state.flags["in_combat"] = active
 
-def current_enemy(ctx) -> Optional[dict]:
-    return ctx.state.flags.get("enemy")
+def current_enemies(ctx) -> list:
+    return ctx.state.flags.get("enemies", [])
 
 def _rng(ctx) -> random.Random:
     r = getattr(ctx, "_rng", None)
@@ -73,25 +73,50 @@ def _debug(ctx, msg: str):
 # Lifecycle
 # ============================================================================
 
-def enter_combat_with_walker(ctx, mob_id: str = "shambler"):
+def enter_combat_with_walker(ctx, mob_ids=None):
+    """
+    Avvia un combattimento con una lista di mob_id (o uno solo).
+    """
     if in_combat(ctx):
         return
     walkers = load_walkers()
-    mob = walkers.get(mob_id, {
-        "id": "shambler",
-        "name": "Walker barcollante",
-        "health": 2,
-        "attack_damage": 1
-    })
-    _set_combat(ctx, True)
-    ctx.state.flags.update({
-        "enemy": {
+    mob_ids_local = mob_ids
+    if mob_ids_local is None:
+        mob_ids_local = ["shambler"]
+    elif isinstance(mob_ids_local, str):
+        mob_ids_local = [mob_ids_local]
+    enemies = []
+    for mob_id in mob_ids_local:
+        mob = walkers.get(mob_id, {
+            "id": "shambler",
+            "name": "Walker barcollante",
+            "health": 2,
+            "attack_damage": 1
+        })
+        enemies.append({
             "kind": "walker",
             "id": mob.get("id", "shambler"),
             "name": mob.get("name", "Walker"),
             "hp": int(mob.get("health", 2)),
             "admg": int(mob.get("attack_damage", 1)),
-        },
+        })
+    # log dopo la definizione di mob_ids_local
+        mob = walkers.get(mob_id, {
+            "id": "shambler",
+            "name": "Walker barcollante",
+            "health": 2,
+            "attack_damage": 1
+        })
+        enemies.append({
+            "kind": "walker",
+            "id": mob.get("id", "shambler"),
+            "name": mob.get("name", "Walker"),
+            "hp": int(mob.get("health", 2)),
+            "admg": int(mob.get("attack_damage", 1)),
+        })
+    _set_combat(ctx, True)
+    ctx.state.flags.update({
+        "enemies": enemies,
         "qte_active": False,
         "qte_seq": "",
         "qte_deadline": 0.0,
@@ -101,15 +126,23 @@ def enter_combat_with_walker(ctx, mob_id: str = "shambler"):
     now = time.monotonic()
     _reset_next_attack(ctx, now=now)
     say("──────────────── COMBAT ────────────────")
-    say(f"Un **{mob.get('name','Walker')}** ti punta. (attack / push / flee)")
+    _print_enemies(ctx)
+    say("(attack [n] / push [n] / flee)")
     say("Devi agire in fretta.")
     say("───────────────────────────────────────")
-    log(ctx, f"Spawn walker: {mob_id} (in_combat=True)")
+    log(ctx, f"Spawn walkers: {','.join(mob_ids_local)} (in_combat=True)")
     _debug(ctx, f"enter: next_at={ctx.state.flags['next_attack_at']:.2f}")
+def _print_enemies(ctx):
+    enemies = current_enemies(ctx)
+    if not enemies:
+        say("Nessun nemico rimasto.")
+        return
+    for i, e in enumerate(enemies):
+        say(f"[{i+1}] {e['name']} (HP {e['hp']})")
 
 def exit_combat(ctx, *, reason: str = "end"):
     _set_combat(ctx, False)
-    for k in ("enemy","combat_timer","stagger","qte_active","qte_seq","qte_deadline","next_attack_at"):
+    for k in ("enemies","combat_timer","stagger","qte_active","qte_seq","qte_deadline","next_attack_at"):
         ctx.state.flags.pop(k, None)
     log(ctx, f"Combat finito ({reason}).")
 
@@ -152,17 +185,20 @@ def combat_tick(ctx):
     if not in_combat(ctx):
         return
     now = time.monotonic()
-    enemy = current_enemy(ctx)
-    if not enemy:
+    enemies = current_enemies(ctx)
+    if not enemies:
+        exit_combat(ctx, reason="all_enemies_dead")
         return
+    # Per semplicità, solo il primo nemico vivo attacca/QTE (estendibile)
+    enemy = enemies[0]
     if ctx.state.flags.get("qte_active", False):
         deadline = float(ctx.state.flags.get("qte_deadline", 0.0))
         if now > deadline:
             dmg = int(SETTINGS.get("combat_bite_damage", 1))
             p = ctx.state.player
             p.health = max(0, p.health - dmg)
-            say(f"Non fai in tempo: il walker ti morde! (Health -{dmg})")
-            log(ctx, f"Walker morde (QTE fail, Health -{dmg}).")
+            say(f"Non fai in tempo: {enemy['name']} ti morde! (Health -{dmg})")
+            log(ctx, f"{enemy['name']} morde (QTE fail, Health -{dmg}).")
             _debug(ctx, "QTE fail -> bite; reset timer")
             if p.health <= 0:
                 say("Cadi a terra. Il mondo sfuma nel buio…")
@@ -175,23 +211,26 @@ def combat_tick(ctx):
                 "qte_deadline": 0.0,
             })
             _reset_next_attack(ctx, now=now)
+            _print_enemies(ctx)
         return
     next_at = float(ctx.state.flags.get("next_attack_at", now + 9999))
     if now >= next_at:
         if int(ctx.state.flags.get("stagger", 0)) > 0:
             ctx.state.flags["stagger"] = 0
             _reset_next_attack(ctx, now=now)
-            say("Il walker barcolla e perde il tempo per afferrarti.")
-            log(ctx, "Attacco nemico saltato grazie allo stagger.")
+            say(f"{enemy['name']} barcolla e perde il tempo per afferrarti.")
+            log(ctx, f"Attacco nemico saltato grazie allo stagger.")
             _debug(ctx, "stagger consumed -> reset timer")
+            _print_enemies(ctx)
             return
         seq = _gen_qte_sequence(ctx)
         ctx.state.flags["qte_active"] = True
         ctx.state.flags["qte_seq"] = seq
         ctx.state.flags["qte_deadline"] = now + float(SETTINGS.get("combat_qte_time_s", 3.0))
-        say(f"❗ Il walker ti afferra! Liberati digitando:  qte {seq}")
+        say(f"❗ {enemy['name']} ti afferra! Liberati digitando:  qte {seq}")
         log(ctx, f"QTE start: '{seq}' (deadline {ctx.state.flags['qte_deadline']:.2f})")
         _debug(ctx, f"QTE start; deadline={ctx.state.flags['qte_deadline']:.2f}")
+        _print_enemies(ctx)
 
 # ============================================================================
 # Azioni
@@ -204,23 +243,32 @@ def attack(ctx, *args):
     if ctx.state.flags.get("qte_active", False):
         say("Sei bloccato! Liberati prima.")
         return
-    enemy = current_enemy(ctx)
-    if not enemy or enemy.get("kind") != "walker":
-        say("Il bersaglio non è chiaro.")
+    enemies = current_enemies(ctx)
+    if not enemies:
+        say("Non ci sono nemici.")
         return
+    # Scegli bersaglio: attack [n] oppure default primo
+    idx = 0
+    if args and args[0].isdigit():
+        idx = int(args[0]) - 1
+    if idx < 0 or idx >= len(enemies):
+        say(f"Bersaglio non valido. Scegli tra 1 e {len(enemies)}.")
+        _print_enemies(ctx)
+        return
+    enemy = enemies[idx]
 
     inv = ctx.state.player.inventory
     melee = load_melee_weapons()
     _ensure_fists(melee)
 
-    # Selezione arma
+    # Selezione arma (come prima)
     chosen_id = None
     equipped = getattr(ctx.state.player, "equipped", None)
     if equipped and inv.get(equipped, 0) > 0 and equipped in melee:
         chosen_id = equipped
 
-    if not chosen_id and args:
-        token = " ".join(args).lower().strip()
+    if not chosen_id and len(args) > 1:
+        token = " ".join(args[1:]).lower().strip()
         if token in melee and inv.get(token, 0) > 0:
             chosen_id = token
         else:
@@ -244,6 +292,11 @@ def attack(ctx, *args):
     hit_bonus   = float(w.get("hit_bonus", 0.0))
     crit_chance = float(w.get("crit_chance", 0.0))
     wname       = w.get("name", chosen_id)
+    import random as _rnd
+    kill_msg_raw = w.get("kill_msg", "Il colpo spezza tutto: il walker cede e crolla.")
+    hit_msg_raw  = w.get("hit_msg", f"Colpisci con {wname}: il walker vacilla (HP {{hp}}).")
+    kill_msg = _rnd.choice(kill_msg_raw) if isinstance(kill_msg_raw, list) else kill_msg_raw
+    hit_msg  = _rnd.choice(hit_msg_raw) if isinstance(hit_msg_raw, list) else hit_msg_raw
 
     # Energia
     p = ctx.state.player
@@ -263,10 +316,8 @@ def attack(ctx, *args):
         if chosen_id == "knife":
             enemy["hp"] = 0
             _consume_durability(ctx, chosen_id)
-            say("La lama prende l’orbita—un istante, e il walker collassa.")
-            log(ctx, "Kill walker (arma=Coltello, one-shot).")
-            exit_combat(ctx, reason="walker_killed")
-            return
+            say(w.get("kill_msg", "La lama prende l’orbita—un istante, e il walker collassa."))
+            log(ctx, f"Kill walker (arma={wname}, one-shot).")
         else:
             dealt = int(max(1, dmg * (2 if crit else 1)))
             if chosen_id == "fists":
@@ -276,17 +327,23 @@ def attack(ctx, *args):
                 _consume_durability(ctx, chosen_id)
 
             if enemy["hp"] <= 0:
-                say("Il colpo spezza tutto: il walker cede e crolla.")
+                say(kill_msg)
                 log(ctx, f"Kill walker (arma={wname}, crit={crit})")
-                exit_combat(ctx, reason="walker_killed")
+        # Rimuovi nemico se morto
+        if enemy["hp"] <= 0:
+            enemies.pop(idx)
+            _print_enemies(ctx)
+            if not enemies:
+                exit_combat(ctx, reason="all_enemies_dead")
                 return
-            else:
-                say(f"Colpisci con {wname}: il walker vacilla (HP {enemy['hp']}).")
-                log(ctx, f"Walker ferito (HP={enemy['hp']}, arma={wname}, crit={crit})")
+        else:
+            say(hit_msg.replace("{hp}", str(enemy["hp"])))
+            log(ctx, f"Walker ferito (HP={enemy['hp']}, arma={wname}, crit={crit})")
+            _print_enemies(ctx)
     else:
         admg = int(enemy.get("admg", 1))
         p.health = max(0, p.health - admg)
-        say(f"Sbagli il colpo—il walker ti graffia! (Health -{admg})")
+        say(f"Sbagli il colpo—{enemy['name']} ti graffia! (Health -{admg})")
         log(ctx, f"Frank ferito (graffio, -{admg}).")
         if p.health <= 0:
             say("Cadi a terra. Il mondo sfuma nel buio…")
@@ -304,6 +361,19 @@ def push(ctx, *args):
         say("Spingere cosa?")
         return
 
+    enemies = current_enemies(ctx)
+    if not enemies:
+        say("Non ci sono nemici.")
+        return
+    idx = 0
+    if args and args[0].isdigit():
+        idx = int(args[0]) - 1
+    if idx < 0 or idx >= len(enemies):
+        say(f"Bersaglio non valido. Scegli tra 1 e {len(enemies)}.")
+        _print_enemies(ctx)
+        return
+    enemy = enemies[idx]
+
     p = ctx.state.player
     p.energy = max(0.0, p.energy - 0.2)
 
@@ -311,15 +381,16 @@ def push(ctx, *args):
     if rng.random() <= 0.70:
         ctx.state.flags["stagger"] = 1
         _reset_next_attack(ctx, now=time.monotonic(), extra=SETTINGS.get("stagger_delay_s", 0))
-        say("Lo spingi con forza: il walker barcolla all'indietro.")
-        log(ctx, "Walker staggered.")
+        say(f"Lo spingi con forza: {enemy['name']} barcolla all'indietro.")
+        log(ctx, f"{enemy['name']} staggered.")
     else:
-        say("Provi a spingerlo ma resta addosso a te.")
+        say(f"Provi a spingere {enemy['name']} ma resta addosso a te.")
         _reset_next_attack(ctx)
 
     if in_combat(ctx):
         ctx.state.flags["combat_timer"] = 2
         _debug(ctx, "push -> reset timer (+stagger se riuscito)")
+    _print_enemies(ctx)
 
 def flee(ctx, *args):
     if not in_combat(ctx):
@@ -368,8 +439,10 @@ def qte_input(ctx, *args):
         say("Ti divincoli—ti liberi dalla presa! (puoi agire)")
         log(ctx, "QTE success (liberato).")
         _debug(ctx, "qte success -> reset timer")
+        _print_enemies(ctx)
     else:
         say("Sequenza errata! Riprova in fretta!")
+        _print_enemies(ctx)
 
 # ============================================================================
 # Idle: NIENTE DANNI. Accorcia solo il timer per forzare l'attacco/QTE.

@@ -1,0 +1,64 @@
+{
+  "id": "ancient_forest",
+  "name": "Bosco Antico",
+  "description": "Un bosco profondo dove luce e ombra tessono motivi silenziosi.",
+  "macro_rooms": [
+    {
+      "id": "fronte_bosco",
+      "name": "Fronte del Bosco",
+      "description": "Il margine del bosco: radure rade e cespugli bassi prima della selva fitta.",
+      "micro_rooms": [
+        {
+          "id": "limite_sentiero",
+          "name": "Limite del Sentiero",
+          "short": "Un sentiero di terra battuta inizia qui.",
+          "description": "Dietro di te il mondo aperto, davanti tronchi sempre più vicini. Foglie oscillano appena senza suono.",
+          "tags": ["outdoor", "start"],
+          "on_enter_events": ["intro_forest"],
+          "interactables": [ { "id": "stone_marker" } ],
+          "exits": [
+            {"direction": "n", "target_micro": "radura_muschiosa", "locked": false, "description": "Il sentiero prosegue verso una luce verde soffusa."},
+            {"direction": "e", "target_micro": "quercia_cava", "locked": true, "lock_flag": "opened_hollow_oak", "description": "Tra gli alberi intravedi un tronco massiccio."}
+          ]
+        },
+        {
+          "id": "radura_muschiosa",
+          "name": "Radura Muschiosa",
+          "short": "Un tappeto di muschio spugnoso illumina il suolo.",
+          "description": "L'aria è più umida. Piccole particelle di luce vibrano sopra il terreno come pulviscolo sospeso.",
+          "tags": ["outdoor"],
+          "on_enter_events": ["whisper_hint"],
+          "interactables": [ {"id": "herb_leaf"} ],
+          "exits": [
+            {"direction": "s", "target_micro": "limite_sentiero", "locked": false},
+            {"direction": "w", "target_micro": "ruscello_sommerso", "locked": false, "description": "Un calpestio umido verso il gorgoglio sommesso."}
+          ]
+        },
+        {
+          "id": "quercia_cava",
+          "name": "Quercia Cava",
+          "short": "Un tronco antico con una cavità scura.",
+          "description": "La corteccia è spaccata da secoli. All'interno odore terroso e tracce di resina fresca.",
+          "tags": ["outdoor"],
+          "on_enter_events": ["hollow_oak_locked"],
+          "interactables": [ {"id": "oak_resin"} ],
+          "exits": [
+            {"direction": "w", "target_micro": "limite_sentiero", "locked": false}
+          ]
+        },
+        {
+          "id": "ruscello_sommerso",
+          "name": "Ruscello Sommerso",
+          "short": "Acqua lenta scorre sotto radici intrecciate.",
+          "description": "Radici pendono come dita sopra un filo d'acqua trasparente. Rumori lontani sembrano piegarsi qui.",
+          "tags": ["outdoor"],
+          "on_enter_events": ["stream_memory"],
+          "interactables": [ {"id": "smooth_pebble"} ],
+          "exits": [
+            {"direction": "e", "target_micro": "radura_muschiosa", "locked": false}
+          ]
+        }
+      ]
+    }
+  ]
+}

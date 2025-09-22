@@ -7,12 +7,19 @@ Seconda Vita è un motore narrativo testuale ambientato in un bosco, con profond
 ## Funzionalità principali
 - Esplorazione di aree con descrizioni immersive e dettagli sensoriali
 - Oggetti interattivi e dettagli ambientali che cambiano in base a meteo, clima e ora del giorno
-- Sistema di meteo e clima realistico: il tempo e l'ora avanzano dinamicamente
+- Clock realtime puro: 1 secondo reale = 1 minuto di gioco (scalabile) con fasce orarie dinamiche
+- Sistema meteo/clima probabilistico rivalutato ogni 30 minuti simulati (anche durante `wait`)
+- Memoria visite: prima visita descrizione completa, revisite sintetiche, varianti se cambia (fascia oraria | meteo)
+- Linee ambientali contestuali non ripetitive per arricchire l'atmosfera
+- Comando `wait` per far scorrere il tempo senza muoversi
 - Tutti i testi (nomi, descrizioni, messaggi) sono centralizzati in `assets/strings.json` per una facile localizzazione e modifica
 
 ## Comandi base
 - `look` — osserva l'ambiente attuale
 - `go <direzione>` — muoviti nella direzione indicata
+- `wait [min]` — fai passare il tempo senza muoverti (default 10 minuti se omesso). Aggiorna orario, potenzialmente meteo e linea ambientale.
+- `wait until <fase>` — salta alla prossima occorrenza della fase (`mattina`, `giorno`, `sera`, `notte`)
+- `status` / `time` — riepilogo stato temporale e ambientale attuale
 - `quit` — esci dal gioco
 
 ## Struttura Progetto
@@ -49,7 +56,27 @@ Esempio:
 > go n
 > look
 > go w
+> wait 45
+> look
 ```
+
+## Tempo, Fasce Orarie e Meteo
+Il gioco usa un clock realtime: 1 secondo reale = 1 minuto simulato (configurabile via `time_scale`).
+
+Fasce orarie:
+- 06:00–11:59 → mattina
+- 12:00–17:59 → giorno
+- 18:00–21:59 → sera
+- 22:00–05:59 → notte
+
+Il meteo viene rivalutato ogni 30 minuti simulati (30 secondi reali a scala default). Il comando `wait` avanza l'offset temporale, applicando tutte le rivalutazioni necessarie in blocco. Alcune condizioni (pioggia persistente) possono lentamente mutare il clima.
+
+Memoria delle visite:
+- Prima visita: descrizione completa + varianti ambientali.
+- Revisita senza cambi: solo il nome dell'area.
+- Revisita dopo cambio (fascia oraria o meteo): descrizione sintetica evidenziando la variazione.
+
+Linee ambientali: frasi contestuali non ripetute consecutivamente, estratte da set dipendenti da fascia oraria e meteo.
 
 ## Estensioni Pianificate
 | Fase | Feature | Note |
@@ -68,6 +95,7 @@ Esempio:
 - Azioni pure: ogni comando restituisce un `ActionResult` serializzabile.
 - Eventi idempotenti: flag in `fired_events` per prevenire duplicazioni.
 - Separazione I/O: facile sostituire CLI con web / UI futura.
+- Realtime mapping: lo stato temporale è derivato (idempotente) da tempo reale + offset, evitando drift e semplificando salvataggi.
 
 ## Lavorare da iPhone
 Opzione rapida:

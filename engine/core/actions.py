@@ -71,6 +71,74 @@ def _ambient_line(state: GameState) -> str | None:
 class ActionError(Exception):
     pass
 
+_PHASES_ORDER = ["mattina", "giorno", "sera", "notte"]
+
+def status(state: GameState, registry: ContentRegistry) -> Dict[str, object]:
+    """Riepilogo stato ambientale attuale senza modificare memoria visite."""
+    _advance_time_and_weather(state)
+    micro = registry.get_micro(state.current_micro)
+    location = micro.name if micro else state.current_micro
+    # Calcola prossima fase
+    current_idx = _PHASES_ORDER.index(state.daytime)
+    next_phase = _PHASES_ORDER[(current_idx + 1) % len(_PHASES_ORDER)]
+    lines = [
+        f"Orario: {state.time_string()} (Giorno {state.day_count})",
+        f"Fase: {state.daytime}",
+        f"Prossima fase: {next_phase}",
+        f"Meteo: {state.weather} (clima {state.climate})",
+        f"Luogo: {location}",
+    ]
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+
+def _minutes_to_phase(state: GameState, target: str) -> int:
+    """Calcola i minuti da aggiungere per raggiungere la prossima occorrenza della fase target."""
+    if target not in _PHASES_ORDER:
+        raise ActionError(f"Fase sconosciuta: {target}")
+    # Mappa fasce agli intervalli
+    intervals = {
+        "mattina": (6*60, 12*60),
+        "giorno": (12*60, 18*60),
+        "sera": (18*60, 22*60),
+        "notte": (22*60, 24*60 + 6*60),  # notte attraversa la mezzanotte
+    }
+    m = state.time_minutes
+    start, end = intervals[target]
+    if target == "notte":
+        # intervallo spezzato: 22:00-24:00 e 00:00-06:00 (modellato come 22:00-30:00)
+        if m >= 22*60:
+            return 0  # già nella parte 22-24
+        if m < 6*60:
+            return 0  # già nella parte 00-06
+        # altrimenti calcola minuti fino a 22:00
+        return 22*60 - m
+    # Per le altre fasce se siamo già dentro ritorna 0; altrimenti minuti fino all'inizio
+    if start <= m < end:
+        return 0
+    if m < start:
+        return start - m
+    # oltre la fascia: andiamo al giorno successivo
+    return (24*60 - m) + start
+
+def wait_until(state: GameState, registry: ContentRegistry, target_phase: str) -> Dict[str, object]:
+    """Avanza il tempo fino all'inizio della prossima (o corrente, se già dentro) fase indicata."""
+    target_phase = target_phase.lower().strip()
+    minutes = _minutes_to_phase(state, target_phase)
+    if minutes == 0:
+        # Usa status per coerenza ma con messaggio
+        res = status(state, registry)
+        res["lines"].insert(0, f"Sei già nella fase '{target_phase}'.")
+        return res
+    state.manual_offset_minutes += minutes
+    _advance_time_and_weather(state)
+    micro = registry.get_micro(state.current_micro)
+    header = f"[{state.time_string()} Giorno {state.day_count} | {state.daytime.title()} | {state.weather.title()} | {state.climate.title()}]"
+    lines = [header]
+    lines.extend(_wrap(f"Attendi fino alla fase '{target_phase}' (passano {minutes} minuti)."))
+    ambient = _ambient_line(state)
+    if ambient:
+        lines.extend(_wrap(ambient))
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {"waited": minutes, "target_phase": target_phase}}
+
 def wait(state: GameState, registry: ContentRegistry, minutes: int = 10) -> Dict[str, object]:
     """Attende un certo numero di minuti di gioco.
 

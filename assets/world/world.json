@@ -39,7 +39,8 @@
             ],
           "exits": [
             {"direction": "s", "target_micro": "limite_sentiero", "locked": false},
-            {"direction": "w", "target_micro": "ruscello_sommerso", "locked": false, "description": "Un calpestio umido verso il gorgoglio sommesso."}
+            {"direction": "w", "target_micro": "ruscello_sommerso", "locked": false, "description": "Un calpestio umido verso il gorgoglio sommesso."},
+            {"direction": "n", "target_micro": "soglia_radicata", "target_macro": "interno_bosco", "locked": false, "description": "Un varco più scuro tra radici e felci."}
           ]
         },
         {
@@ -70,6 +71,61 @@
             ],
           "exits": [
             {"direction": "e", "target_micro": "radura_muschiosa", "locked": false}
+          ]
+        }
+      ]
+    }
+    ,
+    {
+      "id": "interno_bosco",
+      "name": "Interno del Bosco",
+      "description": "La selva si fa più fitta, umida e stratificata di odori antichi.",
+      "micro_rooms": [
+        {
+          "id": "soglia_radicata",
+          "name": "Soglia Radicata",
+          "short": "Radici intrecciate formano una specie di arco naturale.",
+          "description": "Radici grandi come serpenti emergono e si riintrecciano creando una soglia naturale. L'aria è più densa e fresca.",
+          "tags": ["outdoor", "deep"],
+          "interactables": [ {"id": "stone_marker"} ],
+          "exits": [
+            {"direction": "s", "target_micro": "radura_muschiosa", "target_macro": "fronte_bosco", "locked": false},
+            {"direction": "n", "target_micro": "corridoio_ombra", "locked": false, "description": "Un corridoio di tronchi e ombre."}
+          ]
+        },
+        {
+          "id": "corridoio_ombra",
+          "name": "Corridoio d'Ombra",
+          "short": "Tronchi ravvicinati creano un corridoio stretto.",
+          "description": "La luce qui filtra a lame intermittenti. L'odore di humus è intenso e persistente.",
+          "tags": ["outdoor", "deep"],
+          "interactables": [],
+          "exits": [
+            {"direction": "s", "target_micro": "soglia_radicata", "locked": false},
+            {"direction": "n", "target_micro": "pozzo_luce", "locked": false}
+          ]
+        },
+        {
+          "id": "pozzo_luce",
+          "name": "Pozzo di Luce",
+          "short": "Una colonna di luce verticale attraversa il fogliame.",
+          "description": "Un’apertura circolare nella volta frondosa lascia cadere una colonna luminosa piena di pulviscolo dorato.",
+          "tags": ["outdoor", "focus"],
+          "interactables": [ {"id": "feather", "visible_flag": "is_daytime"} ],
+          "exits": [
+            {"direction": "s", "target_micro": "corridoio_ombra", "locked": false},
+            {"direction": "e", "target_micro": "cuore_radura", "locked": false, "description": "Una fenditura tra fusti piegati."}
+          ]
+        },
+        {
+          "id": "cuore_radura",
+          "name": "Cuore della Radura Nascosta",
+          "short": "Uno spazio sorprendentemente aperto e silenzioso.",
+          "description": "Qui il terreno è morbido e regolare, come se qualcuno lo avesse curato. Il silenzio è quasi perfetto.",
+          "tags": ["outdoor", "sanctum"],
+          "interactables": [],
+          "exits": [
+            {"direction": "w", "target_micro": "pozzo_luce", "locked": false}
           ]
         }
       ]

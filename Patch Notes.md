@@ -1,6 +1,13 @@
 
 # Patch Notes
 
+## Alpha 0.1C
+- Clock ora in realtime puro: 1 secondo reale = 1 minuto di gioco (mapping con offset e scala)
+- Aggiornamento meteo ora valutato ogni 30 minuti simulati anche su salti (es. `wait`), evitando drift a cavallo della mezzanotte
+- Nuovo comando `wait [min]` (default 10) per far scorrere il tempo senza muoversi
+- Gestione avanzata descrizioni in revisita: varianti se cambia firma (daytime|weather)
+- Linee ambientali contestuali non ripetitive estese al comando di attesa
+
 ## Alpha 0.1B
 - Aggiunto sistema di meteo, clima e ora del giorno dinamici
 - Oggetti e dettagli ambientali ora reagiscono a meteo e ora

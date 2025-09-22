@@ -44,19 +44,99 @@
   "aree": {
     "limite_sentiero": {
       "nome": "Limite del Sentiero",
-      "descrizione": "Dietro di te il mondo aperto, davanti tronchi sempre più vicini. L’aria profuma di terra umida e resina. Foglie oscillano appena senza suono, mentre un raggio di sole filtra tra i rami, disegnando motivi dorati sul suolo. Un lieve fruscio accompagna il battito del tuo cuore, come se il bosco stesso respirasse."
+      "descrizione": "Dietro di te il mondo aperto, davanti tronchi sempre più vicini. L’aria profuma di terra umida e resina. Foglie oscillano appena senza suono, mentre un raggio di sole filtra tra i rami, disegnando motivi dorati sul suolo. Un lieve fruscio accompagna il battito del tuo cuore, come se il bosco stesso respirasse.",
+      "varianti": {
+        "mattina": "La luce giovane del mattino spolvera di oro i contorni dei rami.",
+        "giorno": "Il sentiero vibra di calore lieve, insetti tracciano orbite invisibili.",
+        "sera": "Lente ombre ambrate si allungano, il bosco trattiene il respiro.",
+        "notte": "L’oscurità ingoia il sentiero; riflessi pallidi colano tra le fronde.",
+        "pioggia": "Gocce rade punteggiano la terra, il muschio si scurisce e odora di memoria.",
+        "nebbia": "La foschia avvolge i tronchi e dissolve le distanze in un bianco lattiginoso."
+      }
     },
     "radura_muschiosa": {
       "nome": "Radura Muschiosa",
-      "descrizione": "L'aria è più umida e il profumo di muschio fresco avvolge ogni cosa. Piccole particelle di luce vibrano sopra il terreno come pulviscolo sospeso, mentre minuscole rane saltellano tra le felci. Il canto lontano di un uccello si mescola al gorgoglio di un ruscello nascosto."
+      "descrizione": "L'aria è più umida e il profumo di muschio fresco avvolge ogni cosa. Piccole particelle di luce vibrano sopra il terreno come pulviscolo sospeso, mentre minuscole rane saltellano tra le felci. Il canto lontano di un uccello si mescola al gorgoglio di un ruscello nascosto.",
+      "varianti": {
+        "mattina": "Rugiada perlata aderisce al muschio come costellazioni verdi.",
+        "giorno": "La radura respira luce diffusa, i colori sono saturi e vivi.",
+        "sera": "Il verde si attenua in toni di velluto, i suoni si fanno larghi e morbidi.",
+        "notte": "Insetti luminescenti intrecciano traiettorie lente nell’ombra.",
+        "pioggia": "Ogni superficie scintilla d’acqua, gocciolii intrecciano un ritmo liquido.",
+        "nebbia": "La radura sembra sospesa fuori dal tempo, contorni smussati e silenzio spesso."
+      }
     },
     "quercia_cava": {
       "nome": "Quercia Cava",
-      "descrizione": "La corteccia è spaccata da secoli, ricoperta di licheni e piccole formiche in processione. All'interno, l’odore terroso si mescola a quello della resina fresca. Un soffio d’aria fredda esce dalla cavità, portando con sé il mistero di storie antiche e mai raccontate."
+      "descrizione": "La corteccia è spaccata da secoli, ricoperta di licheni e piccole formiche in processione. All'interno, l’odore terroso si mescola a quello della resina fresca. Un soffio d’aria fredda esce dalla cavità, portando con sé il mistero di storie antiche e mai raccontate.",
+      "varianti": {
+        "mattina": "La cavità emana aria tiepida, come un respiro che si sveglia.",
+        "giorno": "Filamenti di luce penetrano obliqui e accendono la resina.",
+        "sera": "L’interno si scurisce e sembra dilatarsi oltre il visibile.",
+        "notte": "La quercia pare custodire un silenzio antico e insondabile.",
+        "pioggia": "L’acqua scivola lungo la corteccia in rivoli lucidi.",
+        "nebbia": "Il tronco emerge dalla bruma come un monolite vivente."
+      }
     },
     "ruscello_sommerso": {
       "nome": "Ruscello Sommerso",
-      "descrizione": "Radici pendono come dita sopra un filo d'acqua trasparente, dove piccoli pesci guizzano tra le ombre. Il suono dell’acqua che scorre è ipnotico, e ogni tanto una goccia si stacca da una foglia, rompendo la quiete con un piccolo tuffo. Rumori lontani sembrano piegarsi qui, come se il bosco ascoltasse i tuoi passi."
+      "descrizione": "Radici pendono come dita sopra un filo d'acqua trasparente, dove piccoli pesci guizzano tra le ombre. Il suono dell’acqua che scorre è ipnotico, e ogni tanto una goccia si stacca da una foglia, rompendo la quiete con un piccolo tuffo. Rumori lontani sembrano piegarsi qui, come se il bosco ascoltasse i tuoi passi.",
+      "varianti": {
+        "mattina": "La superficie dell’acqua riflette un cielo lattiginoso e sereno.",
+        "giorno": "Bagliori argentei saettano quando i pesci cambiano direzione.",
+        "sera": "Il ruscello assorbe il colore del tramonto e diventa rame fuso.",
+        "notte": "L’acqua è un nastro scuro, punteggiato da riflessi stellari diffusi.",
+        "pioggia": "Gocce increspano il filo d’acqua creando cerchi concentrici vivaci.",
+        "nebbia": "Vapore tenue si leva dalla corrente, velando radici e pietre."
+      }
+    },
+    "soglia_radicata": {
+      "nome": "Soglia Radicata",
+      "descrizione": "Radici contorte emergono dal terreno costruendo una porta naturale verso un interno più fitto e quieto.",
+      "varianti": {
+        "mattina": "Rugiada stilla dalle radici come da cavi sospesi.",
+        "giorno": "Insetti esplorano i cunicoli tra le radici come strade animate.",
+        "sera": "Le radici proiettano ombre che sembrano dita allungate.",
+        "notte": "Solo i contorni pallidi delle radici rimangono percepibili.",
+        "pioggia": "Fili d’acqua scorrono nei solchi della corteccia.",
+        "nebbia": "La soglia pare galleggiare su un cuscino lattiginoso."
+      }
+    },
+    "corridoio_ombra": {
+      "nome": "Corridoio d'Ombra",
+      "descrizione": "Tronchi ravvicinati formano un passaggio stretto dove la luce arriva in lame sottili e incise.",
+      "varianti": {
+        "mattina": "Lame oblique incidono la penombra in segmenti chiari.",
+        "giorno": "Le lame si moltiplicano e vibrano con la polvere sospesa.",
+        "sera": "Le lame si dissolvono, resta una penombra omogenea.",
+        "notte": "Solo una tenue luminescenza suggerisce il tracciato.",
+        "pioggia": "Le superfici scure riflettono bagliori liquidi.",
+        "nebbia": "Il corridoio si accorcia visivamente in pochi passi." 
+      }
+    },
+    "pozzo_luce": {
+      "nome": "Pozzo di Luce",
+      "descrizione": "Una colonna verticale di luce attraversa lo strato fogliare e cade su un cerchio di terreno chiaro.",
+      "varianti": {
+        "mattina": "La luce è fresca e argentata.",
+        "giorno": "La colonna è densa e dorata, quasi palpabile.",
+        "sera": "La colonna impallidisce e si tinge di ambra.",
+        "notte": "Solo un ricordo lattiginoso rimane nella verticalità.",
+        "pioggia": "Gocce luminose cadono nella colonna e scintillano brevemente.",
+        "nebbia": "La luce si diffonde e riempie lo spazio come polvere viva." 
+      }
+    },
+    "cuore_radura": {
+      "nome": "Cuore della Radura Nascosta",
+      "descrizione": "Uno spazio regolare e sorprendentemente curato, dove il silenzio assume una qualità tattile.",
+      "varianti": {
+        "mattina": "Il silenzio è interrotto solo da un lontano gorgoglio.",
+        "giorno": "La quiete è intensa ma non ostile.",
+        "sera": "L’aria trattiene un tepore che altrove svanisce.",
+        "notte": "Il silenzio diventa quasi pressurizzato attorno a te.",
+        "pioggia": "Le gocce sono assorbite dal terreno senza schizzo.",
+        "nebbia": "I bordi della radura si impastano in un anello sfumato." 
+      }
     }
   }
 }

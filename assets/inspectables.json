@@ -1,0 +1,68 @@
+{
+  "stone_marker": {
+    "titolo": "Cippo di Pietra",
+    "prima_volta": "Un cippo levigato emergente dal terreno, le superfici consumate mostrano incisioni quasi svanite. Alcune linee sembrano formare un simbolo circolare con quattro segmenti interni, forse una mappa schematica o un antico sigillo.",
+    "successive": "Il cippo reca ancora quel simbolo circolare eroso: quattro segmenti interni disposti come petali incompleti.",
+    "examine": "Soffiando via residui di polvere emerge una micro‑scheggiatura recente: qualcuno lo ha toccato di recente. Tra i segmenti centrali noti minuscoli punti allineati.",
+    "search": "Seguendo i punti con un'unghia percepisci lievi differenze di profondità: potrebbero rappresentare una sequenza (4, 2, 3, 1). Annotarla potrebbe essere utile più avanti.",
+    "flag_on_inspect": "has_examined_marker"
+  },
+  "feather": {
+    "titolo": "Piuma Iridescente",
+    "prima_volta": "Una piuma sottile che riflette la luce in sfumature blu e verdi. Il rachide è sorprendentemente caldo al tatto, come se avesse trattenuto calore recente.",
+    "successive": "La piuma continua a vibrare a ogni minimo spostamento d'aria.",
+    "examine": "Avvicinando la piuma alla luce noti micro‑striature che sembrano canalizzare il chiarore lungo i bordi.",
+    "search": "Una peluria quasi invisibile trattiene minute particelle dorate; impossibile raccoglierle senza distruggerle.",
+    "flag_on_inspect": null
+  },
+  "bark_engraving": {
+    "titolo": "Incisione sulla Corteccia",
+    "prima_volta": "Linee sottili e parallele graffiano la superficie: non parole, ma forse un codice ritmico. Alcune incisioni sono più fresche, segno che qualcuno è tornato più volte.",
+    "successive": "Le linee restano indecifrabili ma ormai familiari.",
+    "examine": "Grattando appena con la punta di un ramo si solleva polvere fibrosa recente: qualcuno ha aggiunto un tratto extra da poco.",
+    "search": "Tra le incisioni trovi una micro‑scaglia di pietra simile al cippo: segno che lo stesso attrezzo ha inciso entrambi.",
+    "flag_on_inspect": null
+  },
+  "herb_leaf": {
+    "titolo": "Foglia Aromatica",
+    "prima_volta": "Sfregandola tra le dita rilascia un aroma balsamico che libera la mente. Sul retro corre una venatura violacea inusuale.",
+    "successive": "Resta l'aroma balsamico e la venatura violacea.",
+    "flag_on_inspect": null
+  },
+  "mushroom": {
+    "titolo": "Fungo Pallido",
+    "prima_volta": "Cappello latteo leggermente translucido. Sotto, lamelle finissime che emanano un odore ferroso tenue.",
+    "successive": "Il fungo non mostra mutamenti visibili.",
+    "flag_on_inspect": null
+  },
+  "butterfly": {
+    "titolo": "Farfalla Lenta",
+    "prima_volta": "Batte le ali con ritmo quasi ipnotico. Le nervature formano geometrie simili a rune stilizzate.",
+    "successive": "Le ali riflettono micro-lampi dorati.",
+    "flag_on_inspect": null
+  },
+  "smooth_pebble": {
+    "titolo": "Ciottolo Levigato",
+    "prima_volta": "Superficie incredibilmente liscia: l'acqua ha lavorato per anni. All'interno intravedi un filamento scuro a spirale.",
+    "successive": "Il filamento scuro rimane immobile, come sospeso.",
+    "examine": "Ruotandolo sotto la luce la spirale rifrange un bagliore interno pallido, non riflesso esterno.",
+    "search": "Premendo con decisione non si apre nulla; la spirale è inglobata nella matrice della pietra.",
+    "flag_on_inspect": null
+  },
+  "bird_nest": {
+    "titolo": "Nido di Ramo",
+    "prima_volta": "Intreccio di fibre, licheni e un frammento di corda rossa sintetica: presenza umana recente? Nessun uovo al momento.",
+    "successive": "Il frammento di corda resta ben visibile.",
+    "examine": "Osservando meglio la corda rossa è sfilacciata come se fosse stata strappata di colpo.",
+    "search": "Sollevando con delicatezza il nido non trovi altro sotto: solo terra compressa e qualche minuscolo insetto lucente.",
+    "flag_on_inspect": null
+  },
+  "radice_talismano": {
+    "titolo": "Talismano di Radici",
+    "prima_volta": "Un intreccio compatto di radichette secche forma un anello imperfetto. Alcune estremità sembrano fuse tra loro come cera raffreddata.",
+    "successive": "Il piccolo anello di radici rimane immobile, pulsando appena nella tua percezione.",
+    "examine": "Noti che le giunzioni non sono naturali: sottilissimi filamenti biancastri saldano le radici. Emanano un tepore tenue che non dipende dall'ambiente.",
+    "search": "Separando con estrema cautela due radici scorgi al centro una micro‑scheggia lucida, metallica, incastrata e impossibile da estrarre a mani nude.",
+    "flag_on_inspect": null
+  }
+}

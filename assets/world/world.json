@@ -22,7 +22,7 @@
             ],
           "exits": [
             {"direction": "n", "target_micro": "radura_muschiosa", "locked": false, "description": "Il sentiero prosegue verso una luce verde soffusa."},
-            {"direction": "e", "target_micro": "quercia_cava", "locked": true, "lock_flag": "opened_hollow_oak", "description": "Tra gli alberi intravedi un tronco massiccio."}
+            {"direction": "e", "target_micro": "quercia_cava", "locked": false, "description": "Tra gli alberi intravedi un tronco massiccio."}
           ]
         },
         {
@@ -55,7 +55,8 @@
               { "id": "ant_nest", "visible_flag": "is_spring" }
             ],
           "exits": [
-            {"direction": "w", "target_micro": "limite_sentiero", "locked": false}
+            {"direction": "w", "target_micro": "limite_sentiero", "locked": false},
+            {"direction": "d", "target_micro": "antro_radicato", "target_macro": "rifugio_radice", "locked": false, "description": "Una cavità discende nelle radici."}
           ]
         },
         {
@@ -76,6 +77,26 @@
       ]
     }
     ,
+    {
+      "id": "rifugio_radice",
+      "name": "Rifugio sotto la Radice",
+      "description": "Uno spazio chiuso scavato tra radici contorte, asciutto e più caldo rispetto all'esterno.",
+      "micro_rooms": [
+        {
+          "id": "antro_radicato",
+          "name": "Antro Radicato",
+          "short": "Una camera raccolta fra radici intrecciate.",
+          "description": "Le radici formano archi e nervature come travi organiche. Piccoli granelli di terra cadono a intervalli, e un silenzio ovattato assorbe i suoni del bosco sopra di te.",
+          "tags": ["indoor", "shelter"],
+          "interactables": [
+            { "id": "radice_talismano", "visible_flag": "is_night" }
+          ],
+          "exits": [
+            {"direction": "u", "target_micro": "quercia_cava", "target_macro": "fronte_bosco", "locked": false, "description": "Il passaggio risale verso la cavità della quercia."}
+          ]
+        }
+      ]
+    },
     {
       "id": "interno_bosco",
       "name": "Interno del Bosco",

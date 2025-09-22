@@ -1,0 +1,9 @@
+{
+  "id": "knife",
+  "name": "Coltello",
+  "damage": 3,
+  "crit_chance": 0.1,
+  "crit_multiplier": 2.0,
+  "tags": ["melee", "blade"],
+  "description": "Un coltello affilato, ideale per colpi mirati alla testa di un vagante."
+}

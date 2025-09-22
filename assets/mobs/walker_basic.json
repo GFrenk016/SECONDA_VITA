@@ -1,0 +1,19 @@
+{
+  "id": "walker_basic",
+  "name": "Vagante",
+  "hp": 8,
+  "attack": 2,
+  "attack_variance": 1,
+  "qte_chance": 0.6,
+  "qte_window_minutes": 2,
+  "qte_prompts": [
+    {"part": "braccia", "prompt": "Blocca le braccia! (B)", "expected": "b", "effect": "reduce_next_damage"},
+    {"part": "gamba", "prompt": "Evita la gamba che avanza! (G)", "expected": "g", "effect": "stagger"},
+    {"part": "testa", "prompt": "Colpisci la testa! (T)", "expected": "t", "effect": "bonus_damage"},
+    {"part": "busto", "prompt": "Allontana il busto! (U)", "expected": "u", "effect": "push"}
+  ],
+  "loot": [
+    {"item": "straccio", "chance": 0.3},
+    {"item": "ossa", "chance": 0.1}
+  ]
+}

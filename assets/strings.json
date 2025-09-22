@@ -39,6 +39,10 @@
     "bird_nest": {
       "nome": "Nido di uccelli",
       "descrizione": "Tra i rami intrecciati, un nido accoglie piume e piccoli gusci vuoti. Il canto degli uccelli riempie l’aria del mattino."
+    },
+    "radice_talismano": {
+      "nome": "Talismano Radice",
+      "descrizione": "Un piccolo intreccio di radici essiccate che forma un nodo quasi regolare. Emana una lieve sensazione di calore quando la notte è profonda."
     }
   },
   "aree": {
@@ -136,6 +140,18 @@
         "notte": "Il silenzio diventa quasi pressurizzato attorno a te.",
         "pioggia": "Le gocce sono assorbite dal terreno senza schizzo.",
         "nebbia": "I bordi della radura si impastano in un anello sfumato." 
+      }
+    },
+    "antro_radicato": {
+      "nome": "Antro Radicato",
+      "descrizione": "Uno spazio raccolto fra radici intrecciate; l'esterno arriva attenuato in vibrazioni lontane.",
+      "varianti": {
+        "mattina": "L'umidità residua della notte lentamente svanisce dalle radici.",
+        "giorno": "La luce filtrata dall'alto arriva in riflessi ocra sulle superfici.",
+        "sera": "Le ombre interne si ispessiscono in un unico volume scuro.",
+        "notte": "Il buio è quasi totale, rotto da un filo di chiarore che filtra dall'alto.",
+        "pioggia": "Piccoli rigagnoli serpeggiano tra le radici senza raggiungere il suolo asciutto centrale.",
+        "nebbia": "La foschia non penetra completamente: rimane sospesa come un velo all'ingresso." 
       }
     }
   }

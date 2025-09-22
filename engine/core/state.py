@@ -36,6 +36,39 @@ class GameState:
     visit_counts: Dict[str, int] = field(default_factory=dict)
     micro_last_signature: Dict[str, str] = field(default_factory=dict)  # firma (daytime|weather)
     last_ambient_line: str | None = None
+    # Tracciamento oggetti visibili per micro stanza (per evidenziare nuovi elementi apparsi)
+    micro_last_visible: Dict[str, Set[str]] = field(default_factory=dict)
+    # --- Ambient Snippet Rate Limiting ---
+    # Per evitare spam di linee atmosferiche ad ogni azione, imponiamo un
+    # intervallo minimo (in minuti simulati) tra due emissioni successive.
+    # Se non è trascorso almeno ambient_min_gap_minutes dal precedente
+    # snippet, _ambient_line() restituisce None.
+    ambient_min_gap_minutes: int = 8
+    # total_minutes dell'ultima emissione; inizializzato a valore negativo per
+    # consentire un primo snippet immediato.
+    last_ambient_emit_total: int = -10000
+    # --- TEST / deterministic support ---
+    # Per alcuni test è utile forzare la prossima emissione ambientale scegliendo
+    # una chiave specifica di _AMBIENT_SNIPPETS oppure un testo esatto. I test
+    # possono impostare uno di questi attributi e la funzione _ambient_line li
+    # consumerà e poi azzererà per non influenzare emissioni successive.
+    force_ambient_key: str | None = None
+    force_ambient_exact: str | None = None
+    # --- Combat core (fase 1: singolo nemico, arma singola) ---
+    player_hp: int = 10
+    player_max_hp: int = 10
+    player_weapon_id: str | None = None  # id arma equipaggiata (per ora una sola)
+    # Struttura sessione combat attiva, None se non in combattimento.
+    # Esempio:
+    # combat_session = {
+    #   'enemy_id': 'walker',
+    #   'enemy_name': 'Walker',
+    #   'enemy_hp': 6,
+    #   'enemy_max_hp': 6,
+    #   'phase': 'player' | 'qte' | 'enemy' | 'ended',
+    #   'qte': { 'prompt': 'Premi A', 'expected': 'a', 'deadline_total': <minuti_totali_scadenza> },
+    # }
+    combat_session: dict | None = None
 
     def recompute_from_real(self, now_ts: float):
         if self.real_start_ts is None:
@@ -49,6 +82,30 @@ class GameState:
         self._recompute_daytime()
         # Restituisce anche il totale minuti per uso esterno se necessario
         return total_minutes
+
+    def set_time_scale(self, new_scale: float):
+        """Aggiorna dinamicamente la velocità del tempo (minuti di gioco per secondo reale).
+
+        Mantiene invariato l'orario simulato corrente ricalibrando ``real_start_ts``.
+        Esempio: se passi da 1.0 (1s=1min) a 0.25, il tempo scorrerà 4 volte più lentamente.
+
+        new_scale: deve essere > 0.
+        """
+        if new_scale <= 0:
+            raise ValueError("time_scale deve essere > 0")
+        # Calcola minuti simulati totali attuali usando la scala precedente
+        now_ts = __import__("time").time()
+        current_total_minutes = self.recompute_from_real(now_ts)
+        # Aggiorna la scala
+        self.time_scale = new_scale
+        # Ricalibra l'ancora reale affinché recompute_from_real mantenga i minuti correnti
+        # total_minutes = int((now - real_start_ts)*scale) + offset  ~= current_total_minutes
+        # => real_start_ts = now - (current_total_minutes - offset)/scale
+        # Usiamo float preciso (niente int) per minimizzare drift.
+        simulated_without_offset = current_total_minutes - self.manual_offset_minutes
+        self.real_start_ts = now_ts - (simulated_without_offset / self.time_scale)
+        # Forza un recompute per aggiornare campi derivati coerenti
+        self.recompute_from_real(now_ts)
 
     # advance_minutes non serve più in realtime
 

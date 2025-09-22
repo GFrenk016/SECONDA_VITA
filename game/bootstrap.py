@@ -6,6 +6,7 @@ from engine.core.world import build_world_from_dict, validate_world
 from engine.core.registry import ContentRegistry
 from engine.core.state import GameState
 import time
+from config import get_time_scale
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "world"
 WORLD_FILE = ASSETS_DIR / "world.json"
@@ -19,6 +20,12 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     if strings_path.exists():
         with strings_path.open("r", encoding="utf-8") as sf:
             strings_data = json.load(sf)
+    # Carica inspectables (dati estesi per azione inspect)
+    inspectables_path = WORLD_FILE.parent.parent / "inspectables.json"
+    inspectables_data = {}
+    if inspectables_path.exists():
+        with inspectables_path.open("r", encoding="utf-8") as inf:
+            inspectables_data = json.load(inf)
     world = build_world_from_dict(data)
     issues = validate_world(world)
     if issues:
@@ -28,6 +35,7 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     registry = ContentRegistry(world)
     # Attacco i testi al registry (semplice, futuro: classe dedicata)
     registry.strings = strings_data
+    registry.inspectables = inspectables_data  # type: ignore[attr-defined]
     # Start position: first macro + first micro in definition order.
     first_macro = next(iter(world.macro_rooms.values()))
     first_micro = next(iter(first_macro.micro_rooms.values()))
@@ -52,6 +60,9 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     else:  # notte
         # scegli una notte interna (22:00)
         start_minutes = 22*60
+    # Recupera scala tempo centralizzata
+    env_scale = get_time_scale()
+
     state = GameState(
         world_id=world.id,
         current_macro=first_macro.id,
@@ -60,7 +71,7 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
         weather=weather,
         daytime=daytime,
         manual_offset_minutes=start_minutes,
-        time_scale=1.0  # 1 secondo reale = 1 minuto di gioco
+        time_scale=env_scale  # scala configurabile
     )
     # Calcola i minuti correnti immediatamente (real_start_ts = now)
     now = time.time()

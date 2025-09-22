@@ -22,5 +22,23 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     # Start position: first macro + first micro in definition order.
     first_macro = next(iter(world.macro_rooms.values()))
     first_micro = next(iter(first_macro.micro_rooms.values()))
-    state = GameState(world_id=world.id, current_macro=first_macro.id, current_micro=first_micro.id)
+    # Inizializzazione realistica di clima, meteo e ora del giorno
+    import random
+    daytime = random.choice(["mattina", "giorno", "sera", "notte"])
+    climate = "temperato"  # Potresti variare in base all'area in futuro
+    # Probabilità di meteo in base al clima
+    if climate == "temperato":
+        weather = random.choices(["sereno", "nuvoloso", "pioggia", "nebbia"], weights=[0.5, 0.3, 0.15, 0.05])[0]
+    elif climate == "umido":
+        weather = random.choices(["sereno", "nuvoloso", "pioggia", "nebbia"], weights=[0.2, 0.3, 0.4, 0.1])[0]
+    else:
+        weather = "sereno"
+    state = GameState(
+        world_id=world.id,
+        current_macro=first_macro.id,
+        current_micro=first_micro.id,
+        climate=climate,
+        weather=weather,
+        daytime=daytime
+    )
     return registry, state

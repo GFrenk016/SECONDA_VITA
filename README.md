@@ -1,14 +1,21 @@
+game/
+data/
 # Seconda Vita
 
-Motore narrativo testuale (single‑player) post‑apocalittico. Il giocatore interpreta Frank esplorando un mondo gerarchico (World → MacroRooms → MicroRooms), osserva, compie scelte e avanza con stato persistente.
+Seconda Vita è un motore narrativo testuale ambientato in un bosco, con profondità narrativa e ambiente dinamico.
 
-## Stato attuale (Vertical Slice Iniziale)
-- Caricamento mondo da JSON (`assets/world/world.json`) – ambientazione: Bosco Antico.
-- Comandi base: `look`, `go <direzione>`, `help`, `quit`.
-- Navigazione tra micro stanze con uscite direzionate.
-- Architettura modulare pronta per eventi, salvataggi, inspect, inventario.
+## Funzionalità principali
+- Esplorazione di aree con descrizioni immersive e dettagli sensoriali
+- Oggetti interattivi e dettagli ambientali che cambiano in base a meteo, clima e ora del giorno
+- Sistema di meteo e clima realistico: il tempo e l'ora avanzano dinamicamente
+- Tutti i testi (nomi, descrizioni, messaggi) sono centralizzati in `assets/strings.json` per una facile localizzazione e modifica
 
-## Struttura Progetto (parziale)
+## Comandi base
+- `look` — osserva l'ambiente attuale
+- `go <direzione>` — muoviti nella direzione indicata
+- `quit` — esci dal gioco
+
+## Struttura Progetto
 ```
 engine/
   core/
@@ -22,6 +29,7 @@ game/
   bootstrap.py        # Costruzione mondo + creazione GameState
 assets/
   world/world.json    # Definizione gerarchica Bosco
+  strings.json        # Tutti i testi narrativi e i nomi
 data/
   saves/              # (vuoto) Salvataggi futuri
 run.py                # Entry point CLI

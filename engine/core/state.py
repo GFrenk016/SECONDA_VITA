@@ -17,6 +17,10 @@ class GameState:
     fired_events: Set[str] = field(default_factory=set)
     timeline: List[Dict[str, object]] = field(default_factory=list)
     version: int = 1
+    # Nuovi campi per profondità ambientale
+    weather: str = "sereno"  # es: sereno, pioggia, nebbia
+    climate: str = "temperato"  # es: temperato, caldo, freddo, umido
+    daytime: str = "giorno"  # es: mattina, giorno, sera, notte
 
     def location_key(self) -> str:
         return f"{self.current_macro}:{self.current_micro}"

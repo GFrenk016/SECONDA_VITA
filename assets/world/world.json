@@ -12,10 +12,14 @@
           "id": "limite_sentiero",
           "name": "Limite del Sentiero",
           "short": "Un sentiero di terra battuta inizia qui.",
-          "description": "Dietro di te il mondo aperto, davanti tronchi sempre più vicini. Foglie oscillano appena senza suono.",
-          "tags": ["outdoor", "start"],
-          "on_enter_events": ["intro_forest"],
-          "interactables": [ { "id": "stone_marker" } ],
+            "description": "Dietro di te il mondo aperto, davanti tronchi sempre più vicini. L’aria profuma di terra umida e resina. Foglie oscillano appena senza suono, mentre un raggio di sole filtra tra i rami, disegnando motivi dorati sul suolo. Un lieve fruscio accompagna il battito del tuo cuore, come se il bosco stesso respirasse.",
+            "tags": ["outdoor", "start"],
+            "on_enter_events": ["intro_forest"],
+            "interactables": [
+              { "id": "stone_marker" },
+              { "id": "feather", "visible_flag": "is_daytime" },
+              { "id": "bark_engraving", "visible_flag": "has_examined_marker" }
+            ],
           "exits": [
             {"direction": "n", "target_micro": "radura_muschiosa", "locked": false, "description": "Il sentiero prosegue verso una luce verde soffusa."},
             {"direction": "e", "target_micro": "quercia_cava", "locked": true, "lock_flag": "opened_hollow_oak", "description": "Tra gli alberi intravedi un tronco massiccio."}
@@ -25,10 +29,14 @@
           "id": "radura_muschiosa",
           "name": "Radura Muschiosa",
           "short": "Un tappeto di muschio spugnoso illumina il suolo.",
-          "description": "L'aria è più umida. Piccole particelle di luce vibrano sopra il terreno come pulviscolo sospeso.",
-          "tags": ["outdoor"],
-          "on_enter_events": ["whisper_hint"],
-          "interactables": [ {"id": "herb_leaf"} ],
+            "description": "L'aria è più umida e il profumo di muschio fresco avvolge ogni cosa. Piccole particelle di luce vibrano sopra il terreno come pulviscolo sospeso, mentre minuscole rane saltellano tra le felci. Il canto lontano di un uccello si mescola al gorgoglio di un ruscello nascosto.",
+            "tags": ["outdoor"],
+            "on_enter_events": ["whisper_hint"],
+            "interactables": [
+              { "id": "herb_leaf" },
+              { "id": "mushroom", "visible_flag": "is_rainy" },
+              { "id": "butterfly", "visible_flag": "is_daytime" }
+            ],
           "exits": [
             {"direction": "s", "target_micro": "limite_sentiero", "locked": false},
             {"direction": "w", "target_micro": "ruscello_sommerso", "locked": false, "description": "Un calpestio umido verso il gorgoglio sommesso."}
@@ -38,10 +46,13 @@
           "id": "quercia_cava",
           "name": "Quercia Cava",
           "short": "Un tronco antico con una cavità scura.",
-          "description": "La corteccia è spaccata da secoli. All'interno odore terroso e tracce di resina fresca.",
-          "tags": ["outdoor"],
-          "on_enter_events": ["hollow_oak_locked"],
-          "interactables": [ {"id": "oak_resin"} ],
+            "description": "La corteccia è spaccata da secoli, ricoperta di licheni e piccole formiche in processione. All'interno, l’odore terroso si mescola a quello della resina fresca. Un soffio d’aria fredda esce dalla cavità, portando con sé il mistero di storie antiche e mai raccontate.",
+            "tags": ["outdoor"],
+            "on_enter_events": ["hollow_oak_locked"],
+            "interactables": [
+              { "id": "oak_resin" },
+              { "id": "ant_nest", "visible_flag": "is_spring" }
+            ],
           "exits": [
             {"direction": "w", "target_micro": "limite_sentiero", "locked": false}
           ]
@@ -50,10 +61,13 @@
           "id": "ruscello_sommerso",
           "name": "Ruscello Sommerso",
           "short": "Acqua lenta scorre sotto radici intrecciate.",
-          "description": "Radici pendono come dita sopra un filo d'acqua trasparente. Rumori lontani sembrano piegarsi qui.",
-          "tags": ["outdoor"],
-          "on_enter_events": ["stream_memory"],
-          "interactables": [ {"id": "smooth_pebble"} ],
+            "description": "Radici pendono come dita sopra un filo d'acqua trasparente, dove piccoli pesci guizzano tra le ombre. Il suono dell’acqua che scorre è ipnotico, e ogni tanto una goccia si stacca da una foglia, rompendo la quiete con un piccolo tuffo. Rumori lontani sembrano piegarsi qui, come se il bosco ascoltasse i tuoi passi.",
+            "tags": ["outdoor"],
+            "on_enter_events": ["stream_memory"],
+            "interactables": [
+              { "id": "smooth_pebble" },
+              { "id": "bird_nest", "visible_flag": "is_morning" }
+            ],
           "exits": [
             {"direction": "e", "target_micro": "radura_muschiosa", "locked": false}
           ]

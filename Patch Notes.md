@@ -1,4 +1,11 @@
+
 # Patch Notes
+
+## Alpha 0.1B
+- Aggiunto sistema di meteo, clima e ora del giorno dinamici
+- Oggetti e dettagli ambientali ora reagiscono a meteo e ora
+- Tutti i testi (nomi, descrizioni, messaggi) sono centralizzati in `assets/strings.json`
+- Migliorate e arricchite le descrizioni delle aree e degli oggetti
 
 ## Alpha 0.1 (Iniziale)
 - Struttura progetto creata.

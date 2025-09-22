@@ -1,0 +1,62 @@
+{
+  "oggetti": {
+    "stone_marker": {
+      "nome": "Cippo di Pietra",
+      "descrizione": "Un antico cippo di pietra, coperto di muschio e inciso con simboli ormai consunti dal tempo. Sembra osservarti silenziosamente dal margine del sentiero."
+    },
+    "feather": {
+      "nome": "Piuma bianca",
+      "descrizione": "Una piuma leggera, candida come la luna, si posa tra le foglie. Forse è caduta da un uccello di passaggio, o è stata portata qui dal vento del mattino."
+    },
+    "bark_engraving": {
+      "nome": "Incisione sulla corteccia",
+      "descrizione": "Sulla corteccia di un albero, linee sottili formano un disegno misterioso. Forse un messaggio lasciato da chi ha attraversato il bosco prima di te."
+    },
+    "herb_leaf": {
+      "nome": "Foglia aromatica",
+      "descrizione": "Una foglia dal profumo intenso, con venature profonde. Sfiorandola, senti un aroma che ricorda la pioggia e la terra bagnata."
+    },
+    "mushroom": {
+      "nome": "Fungo rosso",
+      "descrizione": "Un piccolo fungo dal cappello rosso vivo, spunta tra il muschio quando l’aria è umida. Sembra quasi pulsare di vita propria."
+    },
+    "butterfly": {
+      "nome": "Farfalla dorata",
+      "descrizione": "Una farfalla dalle ali dorate danza nella luce del giorno, posandosi di fiore in fiore. Il suo volo aggiunge magia all’atmosfera del bosco."
+    },
+    "oak_resin": {
+      "nome": "Resina di quercia",
+      "descrizione": "Gocce di resina trasparente colano dalla corteccia della quercia cava, profumando l’aria di note dolci e antiche."
+    },
+    "ant_nest": {
+      "nome": "Nido di formiche",
+      "descrizione": "Un piccolo formicaio si nasconde tra le radici, brulicante di vita. Le formiche lavorano instancabili, trasportando minuscoli frammenti di foglia."
+    },
+    "smooth_pebble": {
+      "nome": "Ciottolo levigato",
+      "descrizione": "Un ciottolo liscio, levigato dall’acqua del ruscello. Riflette la luce come uno specchio opaco."
+    },
+    "bird_nest": {
+      "nome": "Nido di uccelli",
+      "descrizione": "Tra i rami intrecciati, un nido accoglie piume e piccoli gusci vuoti. Il canto degli uccelli riempie l’aria del mattino."
+    }
+  },
+  "aree": {
+    "limite_sentiero": {
+      "nome": "Limite del Sentiero",
+      "descrizione": "Dietro di te il mondo aperto, davanti tronchi sempre più vicini. L’aria profuma di terra umida e resina. Foglie oscillano appena senza suono, mentre un raggio di sole filtra tra i rami, disegnando motivi dorati sul suolo. Un lieve fruscio accompagna il battito del tuo cuore, come se il bosco stesso respirasse."
+    },
+    "radura_muschiosa": {
+      "nome": "Radura Muschiosa",
+      "descrizione": "L'aria è più umida e il profumo di muschio fresco avvolge ogni cosa. Piccole particelle di luce vibrano sopra il terreno come pulviscolo sospeso, mentre minuscole rane saltellano tra le felci. Il canto lontano di un uccello si mescola al gorgoglio di un ruscello nascosto."
+    },
+    "quercia_cava": {
+      "nome": "Quercia Cava",
+      "descrizione": "La corteccia è spaccata da secoli, ricoperta di licheni e piccole formiche in processione. All'interno, l’odore terroso si mescola a quello della resina fresca. Un soffio d’aria fredda esce dalla cavità, portando con sé il mistero di storie antiche e mai raccontate."
+    },
+    "ruscello_sommerso": {
+      "nome": "Ruscello Sommerso",
+      "descrizione": "Radici pendono come dita sopra un filo d'acqua trasparente, dove piccoli pesci guizzano tra le ombre. Il suono dell’acqua che scorre è ipnotico, e ogni tanto una goccia si stacca da una foglia, rompendo la quiete con un piccolo tuffo. Rumori lontani sembrano piegarsi qui, come se il bosco ascoltasse i tuoi passi."
+    }
+  }
+}

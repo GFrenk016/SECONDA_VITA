@@ -12,7 +12,12 @@ from .effects import StatusEffectSystem
 
 
 class CombatResolver:
-    """Core combat resolution coordinator."""
+    """Core combat resolution coordinator.
+
+    Aggiunto supporto a RNG iniettabile per determinismo test:
+    - self._rng: se impostato viene usato al posto del modulo random globale
+    - metodo set_rng(r) per iniezione
+    """
     
     def __init__(self):
         self.stamina = StaminaSystem()
@@ -20,6 +25,10 @@ class CombatResolver:
         self.effects = StatusEffectSystem()
         self._entity_data: Dict[str, Dict[str, Any]] = {}
         self._resistance_data: Dict[str, Dict[DamageType, float]] = {}
+        self._rng: Optional[random.Random] = None
+
+    def set_rng(self, rng: random.Random):
+        self._rng = rng
         
     def initialize_entity(self, entity_id: str, entity_data: Dict[str, Any]):
         """Initialize an entity for combat."""
@@ -66,7 +75,8 @@ class CombatResolver:
         
         # Check if attack hits based on quality
         hit_chance = self._get_hit_chance(hit_quality, ctx)
-        if random.random() > hit_chance:
+        rng = self._rng or random
+        if rng.random() > hit_chance:
             result.description.append(f"Attacco mancato - {hit_quality.value}")
             result.events.append({
                 'type': 'attack_missed',

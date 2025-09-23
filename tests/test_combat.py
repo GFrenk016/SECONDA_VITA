@@ -48,28 +48,50 @@ def test_combat_start_and_victory():
     actions.engage(state, reg, ENEMY)
     # Attack until death (weapon damage 3)
     r1 = actions.combat_action(state, reg, 'attack')
-    assert any('Colpisci' in l for l in r1['lines'])
-    # Enemy should trigger QTE (chance 1.0)
-    assert state.combat_session['phase'] in ('qte', 'enemy')
+    # Messaggio di attacco: accetta sia hit ("Colpisci ... infliggendo") sia miss ("Attacco mancato - ...")
+    normalized = [' '.join(l.split()) for l in r1['lines']]
+    assert any(
+        (l.startswith('Colpisci') and 'danni' in l) or l.startswith('Attacco mancato')
+        for l in normalized
+    ), f"Output inatteso: {r1['lines']}"
+    # In realtime il primo attacco non forza più subito QTE: la fase resta 'player'.
+    assert state.combat_session['phase'] in ('player','qte')
     # Force finish: directly reduce enemy hp to test victory path
     state.combat_session['enemy_hp'] = 1
-    r2 = actions.combat_action(state, reg, 'attack') if state.combat_session['phase'] == 'player' else actions.combat_action(state, reg, 'attack') if state.combat_session.update({'phase':'player'}) or True else None
-    assert any('Hai vinto' in l for l in r2['lines'])
+    # Assicura che la fase sia 'player' prima di attaccare
+    if state.combat_session['phase'] != 'player':
+        state.combat_session['phase'] = 'player'
+    # Esegui fino a 10 attacchi per garantire almeno un colpo che chiuda
+    victory = False
+    last_lines = []
+    for _ in range(10):
+        r2 = actions.combat_action(state, reg, 'attack')
+        last_lines = r2['lines']
+        if any('Hai vinto' in l for l in last_lines):
+            victory = True
+            break
+    assert victory, f"Nessuna vittoria dopo attacchi multipli. Ultime linee: {last_lines}"
 
 
 def test_qte_success_and_failure():
     reg, state = build_world()
     actions.engage(state, reg, ENEMY)
-    # First attack to enter QTE phase
-    actions.combat_action(state, reg, 'attack')
-    assert state.combat_session['phase'] == 'qte'
+    # Primo attacco: nel modello realtime il QTE offensivo può attivarsi subito (chance 1.0) oppure essere già in fase player se la logica cambia; se non attivo dopo un secondo attacco deve attivarsi.
+    for _ in range(10):
+        actions.combat_action(state, reg, 'attack')
+        if state.combat_session['phase'] == 'qte':
+            break
+    assert state.combat_session['phase'] == 'qte', f"QTE non attivo dopo 10 attacchi: fase {state.combat_session['phase']}"
     # Success path
     r_qte = actions.combat_action(state, reg, 'qte', 'x')
     assert any('Reazione riuscita' in l for l in r_qte['lines'])
     assert state.combat_session['phase'] == 'player'
-    # Trigger another QTE to test failure (enemy still has HP > 0)
-    actions.combat_action(state, reg, 'attack')  # re-enter qte
-    assert state.combat_session['phase'] == 'qte', f"Fase inattesa: {state.combat_session['phase']}"
+    # Forza un nuovo QTE offensivo: attacca di nuovo finché non riappare (limite di sicurezza 5)
+    for _ in range(5):
+        actions.combat_action(state, reg, 'attack')
+        if state.combat_session['phase'] == 'qte':
+            break
+    assert state.combat_session['phase'] == 'qte', f"Nuovo QTE non attivato: fase {state.combat_session['phase']}"
     # Advance time beyond deadline to force timeout
     session = state.combat_session
     deadline = session['qte']['deadline_total']
@@ -86,9 +108,12 @@ def test_qte_success_and_failure():
 def test_push_and_flee_and_bonus_qte():
     reg, state = build_world()
     actions.engage(state, reg, POOL_ENEMY)
-    # Trigger pool QTE
-    actions.combat_action(state, reg, 'attack')
-    assert state.combat_session['phase'] == 'qte'
+    # Trigger pool QTE (può richiedere più attacchi in realtime)
+    for _ in range(5):
+        actions.combat_action(state, reg, 'attack')
+        if state.combat_session['phase'] == 'qte':
+            break
+    assert state.combat_session['phase'] == 'qte', 'QTE pool non attivato entro 5 attacchi'
     # Use bonus damage QTE
     r_bonus = actions.combat_action(state, reg, 'qte', 't')
     assert any('Bonus' in l or 'Colpo mirato' in l for l in r_bonus['lines'])

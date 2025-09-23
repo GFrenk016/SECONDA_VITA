@@ -13,7 +13,7 @@ Seconda Vita è un motore narrativo testuale ambientato in un bosco, con profond
 - Linee ambientali contestuali non ripetitive per arricchire l'atmosfera
 - Comando `wait` per far scorrere il tempo senza muoversi
 - Tutti i testi (nomi, descrizioni, messaggi) sono centralizzati in `assets/strings.json` per una facile localizzazione e modifica
-- Sistema di combattimento minimale ibrido (fase 1): turno giocatore / QTE in stile Telltale per schivare attacchi di un singolo nemico
+- Sistema di combattimento ibrido realtime (fase 2.1): timer nemici + QTE (difesa/offesa) con pressione temporale. Supporto multi‑nemico, attacco ad area, focus.
 
 ## Comandi base
 - `look` — osserva l'ambiente attuale
@@ -24,30 +24,60 @@ Seconda Vita è un motore narrativo testuale ambientato in un bosco, con profond
 - `inspect <oggetto>` — ispeziona un oggetto/elemento presente nell'area
 - `quit` — esci dal gioco
 
-### Combattimento (fase 1)
-Sistema ibrido: turno semplice + QTE stile Telltale.
+### Combattimento (fase 2.1 – realtime ibrido)
+Nuovo modello realtime: niente più fase 'enemy'. Il tempo simulato scorre (derivato dal clock globale) e il nemico prepara attacchi a intervalli programmati. Quando un attacco sta per arrivare:
+1. Viene schedulato un "incoming attack" con `next_enemy_attack_total`.
+2. Allo scadere del timer si apre un QTE difensivo (fase `qte`, type `defense`) con finestra `defensive_qte_window` minuti simulati.
+3. Se il giocatore preme il tasto corretto (`qte <tasto>`), l'attacco è annullato e il timer successivo viene posticipato.
+4. Se fallisce (input errato o scadenza), il danno viene applicato e si riparte il ciclo.
+
+Gli attacchi del giocatore possono innescare un QTE offensivo (type `offense`) immediatamente dopo l'azione (`qte_chance`). In quel caso il tempo nemico è temporaneamente sospeso finché il QTE non viene risolto (successo/fallimento/timeout). Nessun turno nemico dedicato: la pressione deriva dai timer.
+
+Novità QTE avanzati:
+- QTE complessi alfanumerici (3–5 caratteri) sia in Offense che in Defense. Da CLI puoi digitare direttamente il codice mostrato (anche senza anteporre `qte`).
+- QTE legacy (singolo tasto) ancora disponibili se disabiliti la modalità complessa via config.
+
+Fasi valide:
+- `player`
+- `qte` (offense/defense via `session.qte['type']`)
+- `ended`
+
+Parametri per nemico (JSON):
+- `attack_interval_minutes`: intervallo base attacchi.
+- `attack_interval_multiplier`: scala l'intervallo (es. 0.5 = più frequente).
+- `defensive_qte_window`: finestra di reazione difensiva.
+- `attack_damage_multiplier`: scala il danno base `attack`.
+- `qte_chance`: probabilità di QTE offensivo dopo un tuo attacco riuscito.
+- `qte_prompts`: pool di prompt offensivi (bonus, riduzioni danno, ecc.).
+
+Determinismo per i test: invocare `set_combat_seed(seed)` prima di avviare o durante una sessione per rendere riproducibili i QTE (scelte random e chance). 
+
+Auto‑tick CLI: il prompt avvia un thread di background che richiama periodicamente `tick_combat`, così gli attacchi/QTE appaiono anche mentre sei inattivo al prompt.
+
+Logging eventi: ogni evento combat è aggiunto a `state.timeline` con campi `type='combat'`, `event`, `total_minutes`, payload (es: `player_attack`, `qte_offense_success`, `qte_defense_fail`, `combat_started`, `combat_ended`).
 
 **Comandi CLI disponibili:**
 - `spawn <enemy_id>`: genera un nemico (debug/manuale per ora) e avvia il combattimento.
-- `attack`: attacca con l'arma equip (base 1 danno; `knife` 3 danni).
-- `qte <tasto>`: risponde a un prompt QTE (lettera indicata nel messaggio).
-- `push`: spingi il nemico per guadagnare distanza (il nemico spende il prossimo turno per avvicinarsi se possibile).
-- `flee`: tenta la fuga (chance aumentata se distanza > 0 o nemico ferito).
+- `attack`: attacca con l'arma equip (usa resolver con stamina/postura). Può attivare un QTE offensivo.
+- `qte <tasto>`: risponde a un prompt QTE (offense o defense). Durante un QTE puoi anche digitare direttamente il codice senza il prefisso.
+- `push`: guadagni distanza ritardando l'attacco nemico; il nemico consuma tempo per riavvicinarsi.
+- `flee`: tenta la fuga (probabilità: 30% base +30% se distanza>0 +20% se HP nemico ≤40%). Fallimento anticipa il prossimo attacco.
 - (interno) `engage(...)` / `combat_action(...)` per script/test.
 
-**QTE mirati ed Effetti:** (dal pool definito nel mob JSON)
+**QTE mirati offensivi:** (dal pool definito nel mob JSON)
 - braccia → `reduce_next_damage`: riduce l'attacco del nemico (-1 cumulativo minimo 0)
 - gamba → `stagger`: salta subito al tuo turno (il nemico perde l'attacco)
 - testa → `bonus_damage`: infligge danno bonus immediato pari almeno al danno arma
 - busto → `push`: aggiunge distanza (sinergia con `flee`)
 
-Se fallisci (input errato o tempo scaduto) subisci l'attacco. Se riesci, l'effetto si applica e torni (o resti) al tuo turno.
+QTE Difensivo: appare quando l'attacco nemico entra in finestra. Successo = annulla danno e resetta timer; fallimento = applichi danno e riparte il ciclo.
+
+Timeout QTE Offensivo: se scade la finestra, perdi il bonus e il timer nemico continua normalmente (leggera penalità: attacco prossimo anticipato di 1 minuto simulato).
 
 **Distanza:**
 `push` aumenta la distanza. Finché distanza > 0, il nemico deve prima riavvicinarsi (nessun danno quel giro). La distanza decresce quando il nemico avanza.
 
-**Fuga:**
-Probabilità base 30%, +30% se distanza > 0, +20% se HP nemico ≤ 40% del massimo.
+**Fuga:** probabilità base 30%, +30% se distanza > 0, +20% se HP nemico ≤ 40% del massimo. Fallimento: il prossimo attacco può triggerare prima (timer portato all'istante corrente).
 
 **Asset Combat Data‑Driven:**
 - `assets/weapons/knife.json` – definisce il coltello.
@@ -68,7 +98,15 @@ Probabilità base 30%, +30% se distanza > 0, +20% se HP nemico ≤ 40% del massi
 }
 ```
 
-**Estensioni previste:** multi‑nemico, stati (sanguinamento, infezione), loot effettivo, progressione armi, spawn dinamici ambientali.
+**Estensioni previste:** multi‑nemico simultaneo, effetti di stato (sanguinamento, infezione), loot effettivo, progressione armi, spawn dinamici ambientali, posture break reaction cinematica.
+
+### Patch Notes (estratto rapido Phase 2.1)
+- Rimozione fase 'enemy', loop totalmente event/time‑driven
+- Aggiunti parametri difficoltà (danno e intervallo) per mob
+- QTE separati offense/defense con gestione distinta deadline
+- Logging strutturato eventi combattimento in `state.timeline`
+- Funzione `set_combat_seed` per RNG deterministico testabile
+- Refactor code path e cleanup funzioni legacy `_enemy_attack`, `_maybe_trigger_qte`
 
 ## Struttura Progetto
 ```
@@ -112,6 +150,28 @@ Esempio:
 Il gioco usa un clock realtime: per default 1 secondo reale = 0.25 minuti simulati (quindi una giornata di 24h dura ~96 minuti reali).
 
 Per modificare la velocità del tempo imposta prima di avviare: `SV_TIME_SCALE=0.5` (ecc.). Il valore rappresenta minuti di gioco che avanzano ogni secondo reale.
+
+## Configurazione (config.py + variabili d'ambiente)
+Molti parametri del combat/CLI sono ora centralizzati in `config.py` e sovrascrivibili via env:
+- SV_COMPLEX_QTE: abilita i QTE alfanumerici complessi nel CLI.
+- SV_QTE_LEN_MIN / SV_QTE_LEN_MAX: lunghezze min/max dei codici QTE.
+- SV_QTE_ALPHABET: alfabeto per i QTE (default A‑Z + 0‑9).
+- SV_QTE_DEF_WINDOW_MIN / SV_QTE_OFF_WINDOW_MIN: finestre QTE difensiva/offensiva (in minuti simulati).
+- SV_INACTIVITY_SEC: secondi reali di inattività prima di forzare un attacco/QTE.
+- SV_ATTACK_ALL_COOLDOWN_MIN: cooldown minimo per `attack all` (minuti simulati).
+- SV_TICK_INTERVAL_SEC: intervallo di tick del thread CLI.
+
+Esempi:
+```
+export SV_COMPLEX_QTE=true
+export SV_QTE_LEN_MIN=4
+export SV_QTE_LEN_MAX=4
+export SV_QTE_ALPHABET=0123456789
+export SV_QTE_DEF_WINDOW_MIN=1
+export SV_INACTIVITY_SEC=2
+export SV_TICK_INTERVAL_SEC=0.1
+python run.py
+```
 
 Fasce orarie:
 - 06:00–11:59 → mattina

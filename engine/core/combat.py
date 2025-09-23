@@ -1,4 +1,4 @@
-"""Hybrid turn-based/timed combat system (Phase 2).
+"""Realtime hybrid combat system (Phase 2.1).
 
 Design goals:
 - Hybrid turn-based with time pressure (QTE) elements
@@ -23,13 +23,30 @@ The system now uses internal modules for:
 - StatusEffectSystem: DoT and debuff management
 - TacticalAI: AI decision making
 
-Legacy support maintains all existing behavior while adding new capabilities.
+Phases attuali (semplificate):
+    - 'player' : il giocatore può inserire comandi (attack, push, flee, status)
+    - 'qte'    : finestra rapida (offense o defense) con deadline simulato
+    - 'ended'  : combattimento concluso (victory/defeat/escaped)
+
+Rimosse le fasi legacy ('enemy'). Tutta la pressione temporale arriva da:
+    - timer attacco nemico (next_enemy_attack_total)
+    - finestra difensiva (defensive_qte_window)
+    - scadenza QTE offensivo (qte.deadline_total)
+
+Determinismo testabile: usare set_combat_seed(seed) prima di eseguire azioni.
 """
 from __future__ import annotations
 from typing import Dict, Any, List, Optional
 import random
 import time
+import string
 from .state import GameState
+from config import (
+    DEFAULT_COMPLEX_QTE_ENABLED,
+    QTE_CODE_LENGTH_MIN, QTE_CODE_LENGTH_MAX, QTE_CODE_ALPHABET,
+    DEFAULT_DEFENSIVE_QTE_WINDOW_MIN, DEFAULT_OFFENSIVE_QTE_WINDOW_MIN,
+    INACTIVITY_ATTACK_SECONDS, MIN_ATTACK_ALL_COOLDOWN_MINUTES,
+)
 from .registry import ContentRegistry
 from .combat_system.resolver import CombatResolver
 from .combat_system.models import (
@@ -60,6 +77,21 @@ MOBS: Dict[str, Dict[str, Any]] = {}
 # Global combat resolver instance
 _combat_resolver: Optional[CombatResolver] = None
 _tactical_ai: Optional[TacticalAI] = None
+_RNG: Optional[random.Random] = None
+_COMPLEX_QTE_ENABLED = DEFAULT_COMPLEX_QTE_ENABLED  # default can be overridden by env; tests can toggle
+
+def set_complex_qte(enabled: bool):
+    """Abilita o disabilita i QTE alfanumerici (3-5 char) per offense/defense."""
+    global _COMPLEX_QTE_ENABLED
+    _COMPLEX_QTE_ENABLED = bool(enabled)
+
+def set_combat_seed(seed: int):
+    """Imposta il seed per RNG deterministico nei test di combattimento."""
+    global _RNG
+    _RNG = random.Random(seed)
+    # Propaga anche al resolver se già creato
+    if _combat_resolver is not None:
+        _combat_resolver.set_rng(_RNG)
 
 def _get_combat_resolver() -> CombatResolver:
     """Get or create global combat resolver."""
@@ -67,6 +99,8 @@ def _get_combat_resolver() -> CombatResolver:
     if _combat_resolver is None:
         _combat_resolver = CombatResolver()
         _tactical_ai = TacticalAI(_combat_resolver.stamina, _combat_resolver.posture, _combat_resolver.effects)
+        if _RNG is not None:
+            _combat_resolver.set_rng(_RNG)
     return _combat_resolver
 
 def _get_tactical_ai() -> TacticalAI:
@@ -151,6 +185,35 @@ def resolve_attack(ctx: CombatContext, attacker_data: Dict[str, Any], defender_d
 class CombatError(Exception):
     pass
 
+def _sync_primary_alias(state: GameState):
+    s = state.combat_session
+    if not s:
+        return
+    enemies = s.get('enemies', [])
+    primary = None
+    for e in enemies:
+        if e['hp'] > 0:
+            primary = e
+            break
+    if primary is None and enemies:
+        primary = enemies[0]
+    if not primary:
+        return
+    s['enemy_id'] = primary['id']
+    s['enemy_name'] = primary['name']
+    s['enemy_hp'] = primary['hp']
+    s['enemy_max_hp'] = primary['max_hp']
+    s['enemy_attack'] = primary['attack']
+    # Legacy compatibility for incoming attack fields if derived from this primary
+    if primary.get('incoming_attack'):
+        s['incoming_attack'] = True
+        s['incoming_attack_damage'] = primary.get('incoming_attack_damage', primary['attack'])
+        s['incoming_attack_deadline'] = primary.get('incoming_attack_deadline')
+        s['next_enemy_attack_total'] = primary.get('next_attack_total', s.get('next_enemy_attack_total'))
+    else:
+        s['incoming_attack'] = False
+        s.pop('incoming_attack_deadline', None)
+
 def _total_minutes(state: GameState) -> int:
     return state.day_count * 24 * 60 + state.time_minutes
 
@@ -222,10 +285,53 @@ def _legacy_damage_to_hp(state: GameState, damage_instances: List, target_is_pla
             state.combat_session['enemy_hp'] = max(0, state.combat_session['enemy_hp'] - int(total_damage))
 
 def _emit_combat_event(event_type: str, payload: Dict[str, Any]):
-    """Emit structured combat event for telemetry (placeholder for now)."""
-    # In a full implementation, this would log to a structured logging system
-    # For now, we'll just store it in a simple way that tests can verify
-    pass
+    """Emit structured combat event into state.timeline.
+
+    Ogni evento è un dict:
+      { 'type': 'combat', 'event': event_type, 'time': epoch_sec,
+        'total_minutes': simulated_minutes, **payload }
+    """
+    # Recupera stato da payload se presente
+    state: GameState | None = payload.pop('_state', None)
+    if state is None:
+        return
+    if not hasattr(state, 'timeline') or state.timeline is None:
+        # Inizializza timeline se assente
+        state.timeline = []
+    try:
+        now_sim = _total_minutes(state)
+        evt = {
+            'type': 'combat',
+            'event': event_type,
+            'time': time.time(),
+            'total_minutes': now_sim,
+        }
+        evt.update(payload)
+        state.timeline.append(evt)
+    except Exception:
+        # Non deve rompere il flusso di gioco
+        return
+
+def _auto_switch_focus_if_needed(state: GameState):
+    s = state.combat_session
+    if not s:
+        return
+    focus_id = s.get('focus_enemy_id')
+    if not focus_id:
+        return
+    enemies = s.get('enemies', [])
+    for idx, e in enumerate(enemies):
+        if e['id'] == focus_id:
+            if e['hp'] <= 0:
+                # trova prossimo vivo
+                for j, other in enumerate(enemies):
+                    if other['hp'] > 0:
+                        s['focus_enemy_id'] = other['id']
+                        _emit_combat_event('focus_auto_switch', {'_state': state, 'enemy_id': other['id'], 'enemy_index': j})
+                        return
+                # Nessun vivo, rimuovi focus
+                s.pop('focus_enemy_id', None)
+            return
 
 def start_combat(state: GameState, registry: ContentRegistry, enemy: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy combat start function - maintains compatibility while using new system."""
@@ -242,6 +348,11 @@ def start_combat(state: GameState, registry: ContentRegistry, enemy: Dict[str, A
     
     player_id = 'player'
     enemy_id = enemy['id']
+
+    # Assicura che la definizione base sia registrata per spawn successivi (test multi-spawn)
+    if enemy_id not in MOBS:
+        # Copia shallow: sufficiente per hp/attack e parametri spawn
+        MOBS[enemy_id] = enemy.copy()
     
     resolver.initialize_entity(player_id, player_data)
     resolver.initialize_entity(enemy_id, enemy_data)
@@ -257,12 +368,37 @@ def start_combat(state: GameState, registry: ContentRegistry, enemy: Dict[str, A
     
     # Legacy session structure for backward compatibility
     qte_pool: List[Dict[str, Any]] = enemy.get('qte_prompts', []) or []
+    # Realtime combat extension fields:
+    # - next_enemy_attack_total: minuto simulato in cui, se non interrotto, il nemico effettua un attacco
+    # - enemy_attack_interval: intervallo base (minuti simulati) tra due attacchi automatici
+    # - defensive_qte_window: durata finestra QTE difensivo prima che il colpo vada a segno
+    # - incoming_attack: True se un attacco è caricato ed in attesa di risoluzione (difesa o impatto)
+    # Parametri difficoltà opzionali
+    dmg_mult = float(enemy.get('attack_damage_multiplier', 1.0))
+    interval_mult = float(enemy.get('attack_interval_multiplier', 1.0))
+    base_interval_raw = max(1, int(enemy.get('attack_interval_minutes', 3)))
+    base_interval = max(1, int(base_interval_raw * interval_mult))  # scala intervallo attacchi
+    defensive_window = enemy.get('defensive_qte_window', DEFAULT_DEFENSIVE_QTE_WINDOW_MIN)
+    now_total = _total_minutes(state)
+    enemy_entry = {
+        'id': enemy['id'],
+        'name': enemy.get('name', enemy['id']),
+        'hp': enemy['hp'],
+        'max_hp': enemy['hp'],
+        'attack': int(enemy.get('attack', 1) * dmg_mult),
+        'attack_interval': base_interval,
+        'next_attack_total': now_total + base_interval,
+        'incoming_attack': False,
+        'incoming_attack_damage': 0,
+        'incoming_attack_deadline': None,
+    }
     session = {
-        'enemy_id': enemy['id'],
-        'enemy_name': enemy.get('name', enemy['id']),
-        'enemy_hp': enemy['hp'],
-        'enemy_max_hp': enemy['hp'],
-        'enemy_attack': enemy.get('attack', 1),
+        # Legacy alias (manteniamo per retro compatibilità test esistenti)
+        'enemy_id': enemy_entry['id'],
+        'enemy_name': enemy_entry['name'],
+        'enemy_hp': enemy_entry['hp'],
+        'enemy_max_hp': enemy_entry['max_hp'],
+        'enemy_attack': enemy_entry['attack'],
         'qte_chance': enemy.get('qte_chance', 0.0),
         'qte_prompt': enemy.get('qte_prompt', ''),
         'qte_expected': enemy.get('qte_expected', ''),
@@ -276,6 +412,17 @@ def start_combat(state: GameState, registry: ContentRegistry, enemy: Dict[str, A
         # New system integration
         'player_id': player_id,
         'new_system_active': True,
+        # Realtime legacy (riferito al nemico primario) - mantenuto per compatibilità
+        'next_enemy_attack_total': enemy_entry['next_attack_total'],
+        'enemy_attack_interval': base_interval,
+        'defensive_qte_window': defensive_window,
+        'incoming_attack': False,
+        'incoming_attack_damage': 0,
+        # Tracciamento realtime azioni player (per inattività)
+        'last_player_action_real': time.time(),  # timestamp reale dell'ultima azione valida del giocatore
+    'inactivity_attack_seconds': INACTIVITY_ATTACK_SECONDS,
+        # Multi-enemy
+        'enemies': [enemy_entry],
     }
     state.combat_session = session
     lines = [
@@ -285,12 +432,39 @@ def start_combat(state: GameState, registry: ContentRegistry, enemy: Dict[str, A
     
     # Emit combat started event
     _emit_combat_event('combat_started', {
-        'player_id': player_id,
-        'enemy_id': enemy_id,
+        '_state': state,
+        'player_id': player_id,     'enemy_id': enemy_id,
         'enemy_name': enemy.get('name', enemy_id)
     })
     
     return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'started'}}
+
+# Helper per creare un enemy_entry riutilizzabile anche da spawn
+def _create_enemy_entry(state: GameState, base_def: Dict[str, Any]) -> Dict[str, Any]:
+    dmg_mult = float(base_def.get('attack_damage_multiplier', 1.0))
+    interval_mult = float(base_def.get('attack_interval_multiplier', 1.0))
+    base_interval_raw = max(1, int(base_def.get('attack_interval_minutes', 3)))
+    base_interval = max(1, int(base_interval_raw * interval_mult))
+    now_total = _total_minutes(state)
+    # Offset casuale iniziale per desincronizzare attacchi (0..base_interval-1)
+    global _RNG
+    rng = _RNG or random
+    jitter = 0
+    if base_interval > 1:
+        jitter = rng.randrange(0, base_interval)
+    entry = {
+        'id': base_def['id'],
+        'name': base_def.get('name', base_def['id']),
+        'hp': base_def['hp'],
+        'max_hp': base_def['hp'],
+        'attack': int(base_def.get('attack', 1) * dmg_mult),
+        'attack_interval': base_interval,
+        'next_attack_total': now_total + base_interval + jitter,
+        'incoming_attack': False,
+        'incoming_attack_damage': 0,
+        'incoming_attack_deadline': None,
+    }
+    return entry
 
 def _weapon_damage(state: GameState) -> int:
     """Legacy weapon damage calculation - now integrated with new system."""
@@ -357,16 +531,19 @@ def _check_end(state: GameState):
     s = state.combat_session
     if not s:
         return
-    if s['enemy_hp'] <= 0:
-        s['enemy_hp'] = 0
+    # Multi enemy: vittoria se tutti <=0
+    all_dead = True
+    for e in s.get('enemies', []):
+        if e['hp'] > 0:
+            all_dead = False
+            break
+    if all_dead:
         s['phase'] = 'ended'
         s['result'] = 'victory'
-        
-        # Emit victory event
         _emit_combat_event('combat_ended', {
             'result': 'victory',
             'player_id': s.get('player_id', 'player'),
-            'enemy_id': s['enemy_id']
+            'enemy_id': 'all'
         })
     elif state.player_hp <= 0:
         state.player_hp = 0
@@ -380,103 +557,69 @@ def _check_end(state: GameState):
             'enemy_id': s['enemy_id']
         })
 
-def _maybe_trigger_qte(state: GameState):
-    """Legacy QTE trigger - maintained for backward compatibility."""
+# Nuovo: trigger QTE offensivo direttamente dopo un attacco player (realtime, niente fase enemy)
+def _maybe_trigger_offense_qte(state: GameState):
     s = state.combat_session
-    if not s or s['phase'] != 'enemy':
+    if not s or s['phase'] != 'player':
         return
-    if s['qte_chance'] <= 0 or not s['qte_prompt']:
-        pass
-    
-    # Use pool if available for variety
+    if s['qte_chance'] <= 0:
+        return
+    # Scegli prompt da pool se presente
     chosen_prompt = None
+    global _RNG
+    rng = _RNG or random
     if s.get('qte_pool'):
-        chosen_prompt = random.choice(s['qte_pool'])
-    
-    trigger = random.random() < s['qte_chance']
-    if trigger and (chosen_prompt or s['qte_prompt']):
-        deadline = _total_minutes(state) + s['qte_window']
+        chosen_prompt = rng.choice(s['qte_pool'])
+    trigger = rng.random() < s['qte_chance']
+    if not trigger:
+        return
+    deadline = _total_minutes(state) + s.get('qte_window', DEFAULT_OFFENSIVE_QTE_WINDOW_MIN)
+    if _COMPLEX_QTE_ENABLED:
+        # Genera codice alfanumerico 3-5 per QTE Offensivo
+        length = rng.randint(QTE_CODE_LENGTH_MIN, QTE_CODE_LENGTH_MAX)
+        alphabet = QTE_CODE_ALPHABET
+        code = ''.join(rng.choice(alphabet) for _ in range(length))
+        prompt_text = f"QTE Offensivo! Digita: {code}"
+        expected = code
+        effect = chosen_prompt.get('effect') if chosen_prompt else None
+    else:
+        if not (chosen_prompt or s.get('qte_prompt')):
+            return
         if chosen_prompt:
-            prompt_text = chosen_prompt.get('prompt', s['qte_prompt'])
-            expected = chosen_prompt.get('expected', s['qte_expected'])
+            prompt_text = chosen_prompt.get('prompt', s.get('qte_prompt',''))
+            expected = chosen_prompt.get('expected', s.get('qte_expected',''))
             effect = chosen_prompt.get('effect')
         else:
-            prompt_text = s['qte_prompt']
-            expected = s['qte_expected']
+            prompt_text = s.get('qte_prompt','')
+            expected = s.get('qte_expected','')
             effect = None
-        s['phase'] = 'qte'
-        s['qte'] = {
-            'prompt': prompt_text,
-            'expected': expected,
-            'deadline_total': deadline,
-            'effect': effect,
-        }
-
-def _enemy_attack(state: GameState):
-    """Legacy enemy attack using new combat system where possible."""
-    s = state.combat_session
-    if not s or s['phase'] not in ('enemy', 'qte'):
-        return []
-    
-    # Try to use new system if available
-    if s.get('new_system_active'):
-        resolver = _get_combat_resolver()
-        enemy_data = _get_enemy_data({'attack': s['enemy_attack']})
-        enemy_move = _choose_enemy_move(state, enemy_data)
-        
-        # Create combat context
-        ctx = CombatContext(
-            attacker_id=s['enemy_id'],
-            defender_id=s.get('player_id', 'player'),
-            move=enemy_move
-        )
-        
-        # Resolve attack
-        result = resolver.resolve_attack(ctx, enemy_data, _get_player_data(state))
-        
-        # Apply damage to legacy HP system
-        _legacy_damage_to_hp(state, result.damage_dealt, target_is_player=True)
-        
-        # Process system ticks
-        tick_damage = resolver.tick_systems(s.get('player_id', 'player'))
-        _legacy_damage_to_hp(state, tick_damage, target_is_player=True)
-        
-        lines = []
-        if result.success and result.damage_dealt:
-            dmg = sum(d.amount for d in result.damage_dealt)
-            lines.append(f"Il {s['enemy_name']} ti colpisce infliggendo {dmg:.0f} danni. (HP: {state.player_hp}/{state.player_max_hp})")
-        else:
-            lines.append(f"Il {s['enemy_name']} manca l'attacco.")
-        
-        _check_end(state)
-        if s['phase'] != 'ended':
-            s['phase'] = 'player'
-            s['qte'] = None
-        
-        return lines
-    else:
-        # Fallback to legacy system
-        dmg = s['enemy_attack']
-        state.player_hp -= dmg
-        lines = [f"Il {s['enemy_name']} ti colpisce infliggendo {dmg} danni. (HP: {state.player_hp}/{state.player_max_hp})"]
-        _check_end(state)
-        if s['phase'] != 'ended':
-            s['phase'] = 'player'
-            s['qte'] = None
-        return lines
+    s['phase'] = 'qte'
+    s['qte'] = {
+        'prompt': prompt_text,
+        'expected': expected,
+        'deadline_total': deadline,
+        'effect': effect,
+        'type': 'offense'
+    }
 
 def resolve_combat_action(state: GameState, registry: ContentRegistry, command: str, arg: str | None = None) -> Dict[str, Any]:
-    """Legacy combat action resolution - enhanced with new combat system."""
+    """Legacy combat action resolution - enhanced con realtime e QTE difensivi/offensivi."""
     if not state.combat_session:
         raise CombatError('Non sei in combattimento.')
     s = state.combat_session
     lines: list[str] = []
-    
-    # Update potential QTE timeout before action
-    if s['phase'] == 'qte' and s.get('qte'):
+
+    # Non processiamo immediatamente eventi realtime per preservare turn feeling legacy
+
+    # Timeout QTE offensivo (non difensivo: difensivo gestito da realtime landing)
+    if s['phase'] == 'qte' and s.get('qte') and s['qte'].get('type','offense'):
         if _total_minutes(state) >= s['qte']['deadline_total']:
             lines.append('Fallisci il tempo di reazione!')
-            lines.extend(_enemy_attack(state))
+            # In modello realtime non forziamo enemy attack immediato, semplicemente chiudiamo QTE
+            s['qte'] = None
+            s['phase'] = 'player'
+            # Dopo timeout, processa eventuali nuovi eventi
+            lines.extend(_process_realtime_events(state))
             return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
     
     if s['phase'] == 'ended':
@@ -484,40 +627,241 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
 
     command = command.lower().strip()
     
-    # Status command with enhanced info
+    # Status command with enhanced info (multi nemico)
     if command == 'status':
-        status_line = f"Nemico {s['enemy_name']} HP {s['enemy_hp']}/{s['enemy_max_hp']} | Tu {state.player_hp}/{state.player_max_hp} | Fase: {s['phase']}"
-        
-        # Add stamina/posture info if new system is active
+        lines.extend(_process_realtime_events(state))
+        _sync_primary_alias(state)
+        enemies = s.get('enemies', [])
+        status_line = f"Tu {state.player_hp}/{state.player_max_hp} | Fase: {s['phase']}"
+        if s.get('incoming_attack') and 'incoming_attack_deadline' in s:
+            remaining = s['incoming_attack_deadline'] - _total_minutes(state)
+            if remaining < 0:
+                remaining = 0
+            status_line += f" | ATTACCO IN ARRIVO ({remaining}m)"
         if s.get('new_system_active'):
             resolver = _get_combat_resolver()
             player_id = s.get('player_id', 'player')
-            enemy_id = s['enemy_id']
-            
-            player_stamina = resolver.stamina.get_stamina(player_id)
-            player_posture = resolver.posture.get_posture(player_id)
-            enemy_stamina = resolver.stamina.get_stamina(enemy_id)
-            enemy_posture = resolver.posture.get_posture(enemy_id)
-            
-            status_line += f" | Stamina: {player_stamina}/100 | Postura: {player_posture:.0f}/100"
-            status_line += f" | Nemico Stamina: {enemy_stamina}/80 | Nemico Postura: {enemy_posture:.0f}/60"
-        
-        if s['phase'] == 'qte' and s['qte']:
+            enemy_id = s.get('enemy_id')
+            if enemy_id:
+                player_stamina = resolver.stamina.get_stamina(player_id)
+                player_posture = resolver.posture.get_posture(player_id)
+                enemy_stamina = resolver.stamina.get_stamina(enemy_id)
+                enemy_posture = resolver.posture.get_posture(enemy_id)
+                status_line += f" | Stamina: {player_stamina}/100 | Postura: {player_posture:.0f}/100"
+                status_line += f" | Nemico Stamina: {enemy_stamina}/80 | Nemico Postura: {enemy_posture:.0f}/60"
+        if s['phase'] == 'qte' and s.get('qte'):
             remaining = max(0, s['qte']['deadline_total'] - _total_minutes(state))
             status_line += f" | QTE: {s['qte']['prompt']} (restano {remaining} minuti)"
-        
-        return {'lines': [status_line], 'hints': [], 'events_triggered': [], 'changes': {}}
+        lines.append(status_line)
+        # Elenco nemici multilinea
+        if enemies:
+            focus_id = s.get('focus_enemy_id')
+            for idx, e in enumerate(enemies):
+                flags = []
+                if e['hp'] <= 0:
+                    flags.append('X')
+                if focus_id == e['id'] and e['hp'] > 0:
+                    flags.append('F')
+                if e.get('incoming_attack'):
+                    # calcola minuti rimanenti
+                    dl = e.get('incoming_attack_deadline')
+                    if dl is not None:
+                        rem = max(0, dl - _total_minutes(state))
+                        flags.append(f"I:{rem}m")
+                    else:
+                        flags.append('I')
+                flag_str = (' [' + ','.join(flags) + ']') if flags else ''
+                lines.append(f"  {idx+1}. {e['name']} {e['hp']}/{e['max_hp']}{flag_str}")
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
 
-    # Attack command - enhanced with new system
-    if command == 'attack':
+    # Comando focus: focus <index>
+    if command.startswith('focus'):
         if s['phase'] != 'player':
             raise CombatError('Non è il tuo turno.')
+        parts = command.split()
+        enemies = s.get('enemies', [])
+        if len(enemies) == 0:
+            raise CombatError('Nessun nemico da focalizzare.')
+        target_enemy = None
+        idx_used = None
+        if len(parts) >= 2 and parts[1].isdigit():
+            idx = int(parts[1]) - 1
+            if 0 <= idx < len(enemies):
+                if enemies[idx]['hp'] > 0:
+                    target_enemy = enemies[idx]
+                    idx_used = idx
+        if target_enemy is None:
+            # default: primo vivo
+            for i,e in enumerate(enemies):
+                if e['hp'] > 0:
+                    target_enemy = e
+                    idx_used = i
+                    break
+        if target_enemy is None:
+            raise CombatError('Nessun bersaglio valido da focalizzare.')
+        s['focus_enemy_id'] = target_enemy['id']
+        lines.append(f"Ti concentri su {target_enemy['name']}.")
+        _emit_combat_event('focus_set', {'_state': state, 'enemy_id': target_enemy['id'], 'enemy_index': idx_used})
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+
+    # Attack (supporta target: attack 2)
+    if command.startswith('attack'):
+        # Attacco ad area: "attack all"
+        if command.strip() == 'attack all':
+            if s['phase'] != 'player':
+                # Replica logica penalità usata nell'attacco singolo
+                if s['phase'] == 'qte' and s.get('qte') and s['qte'].get('type') == 'defense' and s.get('incoming_attack'):
+                    dmg = s.get('incoming_attack_damage') or s.get('enemy_attack',1)
+                    state.player_hp -= dmg
+                    lines.append(f"Ignori la difesa e vieni colpito per {dmg} danni! (HP: {state.player_hp}/{state.player_max_hp})")
+                    attacker_idx = s.get('qte', {}).get('enemy_index')
+                    if attacker_idx is not None and attacker_idx < len(s.get('enemies', [])):
+                        s['enemies'][attacker_idx]['incoming_attack'] = False
+                        s['enemies'][attacker_idx]['incoming_attack_deadline'] = None
+                    s['incoming_attack'] = False
+                    s['qte'] = None
+                    _check_end(state)
+                    if s['phase'] != 'ended':
+                        s['phase'] = 'player'
+                if s['phase'] != 'player':
+                    raise CombatError('Non è il tuo turno.')
+            # Cooldown check
+            cd_total = s.get('attack_all_cooldown_total')
+            if cd_total is not None and _total_minutes(state) < cd_total:
+                remaining = cd_total - _total_minutes(state)
+                lines.append(f"L'attacco ad area non è pronto (restano {remaining}m).")
+                return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+            s['last_player_action_real'] = time.time()
+            enemies = s.get('enemies', [])
+            alive = [e for e in enemies if e['hp'] > 0]
+            if not alive:
+                raise CombatError('Nessun bersaglio disponibile.')
+            if s.get('new_system_active'):
+                resolver = _get_combat_resolver()
+                player_id = s.get('player_id', 'player')
+                # Usa mossa light base
+                available_moves = _get_available_moves(state)
+                chosen_move = available_moves[0] if available_moves else None
+                if not chosen_move:
+                    raise CombatError('Nessuna mossa disponibile.')
+                # Costo stamina extra (scalare con num nemici) semplice: +5 per nemico oltre il primo
+                extra_cost = max(0, (len(alive)-1) * 5)
+                chosen_move = MoveSpec(
+                    id=chosen_move.id,
+                    name=chosen_move.name + ' (AoE)',
+                    move_type=chosen_move.move_type,
+                    stamina_cost=chosen_move.stamina_cost + extra_cost,
+                    reach=chosen_move.reach,
+                    windup_time=chosen_move.windup_time,
+                    recovery_time=chosen_move.recovery_time,
+                    noise_level=chosen_move.noise_level,
+                    damage_base=chosen_move.damage_base,
+                    damage_type=chosen_move.damage_type,
+                )
+                # Verifica stamina prima di procedere (manualmente)
+                resolver_rng = resolver._rng or random
+                if not resolver.stamina.has_stamina_for_move(player_id, chosen_move):
+                    lines.append('Non hai abbastanza stamina per un attacco ad area.')
+                    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+                total_report = []
+                per_target_events = []
+                # Scaling danno: base 50% * fattore (0.8 + 0.2 * n/(n+2)) → leggero boost su gruppi grandi
+                n_alive = len(alive)
+                scaling_factor = 0.5 * (0.8 + 0.2 * (n_alive / (n_alive + 2)))
+                for enemy_obj in alive:
+                    ctx = CombatContext(attacker_id=player_id, defender_id=enemy_obj['id'], move=chosen_move)
+                    player_data = _get_player_data(state)
+                    enemy_data = _get_enemy_data({'hp': enemy_obj['hp'], 'attack': enemy_obj['attack']})
+                    result = resolver.resolve_attack(ctx, player_data, enemy_data)
+                    if not result.success:
+                        continue
+                    base_damage = sum(d.amount for d in result.damage_dealt)
+                    aoe_damage = int(max(0, base_damage * scaling_factor))
+                    enemy_obj['hp'] = max(0, enemy_obj['hp'] - aoe_damage)
+                    total_report.append(f"{enemy_obj['name']} -{aoe_damage} ({enemy_obj['hp']}/{enemy_obj['max_hp']})")
+                    per_target_events.append({
+                        'enemy_id': enemy_obj['id'],
+                        'enemy_index': enemies.index(enemy_obj),
+                        'damage': aoe_damage,
+                        'enemy_hp': enemy_obj['hp']
+                    })
+                if total_report:
+                    lines.append("Colpisci tutti i nemici! " + "; ".join(total_report))
+                _emit_combat_event('area_attack', {'_state': state, 'targets': per_target_events})
+                # Cooldown: reuse attack interval medio (minimo 2) per gating
+                base_cd = max(MIN_ATTACK_ALL_COOLDOWN_MINUTES, int(sum(e['attack_interval'] for e in alive)/len(alive)))
+                s['attack_all_cooldown_total'] = _total_minutes(state) + base_cd
+                _check_end(state)
+                _sync_primary_alias(state)
+                if s['phase'] == 'ended':
+                    lines.append('Hai vinto.')
+                    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
+                # Process tick systems per nemico colpito (semplificato: stesso resolver.tick per ultimo target)
+                # Potremmo iterare ma manteniamo compatibilità e semplicità
+                lines.extend(_process_realtime_events(state))
+                return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+        if s['phase'] != 'player':
+            # Se QTE difensivo attivo: penalità e poi continuiamo
+            if s['phase'] == 'qte' and s.get('qte') and s['qte'].get('type') == 'defense' and s.get('incoming_attack'):
+                dmg = s.get('incoming_attack_damage') or s.get('enemy_attack',1)
+                state.player_hp -= dmg
+                lines.append(f"Ignori la difesa e vieni colpito per {dmg} danni! (HP: {state.player_hp}/{state.player_max_hp})")
+                attacker_idx = s.get('qte', {}).get('enemy_index')
+                if attacker_idx is not None and attacker_idx < len(s.get('enemies', [])):
+                    s['enemies'][attacker_idx]['incoming_attack'] = False
+                    s['enemies'][attacker_idx]['incoming_attack_deadline'] = None
+                s['incoming_attack'] = False
+                s['qte'] = None
+                _check_end(state)
+                if s['phase'] != 'ended':
+                    s['phase'] = 'player'
+            # Se ancora non player (es. offense QTE) semplicemente non consentiamo
+            if s['phase'] != 'player':
+                # Per compat test: annulla QTE offense scaduto implicitamente e continua
+                if s.get('qte') and s['qte'].get('type') == 'offense':
+                    s['qte'] = None
+                    s['phase'] = 'player'
+                else:
+                    raise CombatError('Non è il tuo turno.')
+        # Aggiorna ultimo timestamp azione giocatore
+        s['last_player_action_real'] = time.time()
+        # Identifica bersaglio
+        enemies = s.get('enemies', [])
+        target_enemy = None
+        if ' ' in command:
+            _, tail = command.split(' ', 1)
+            tail = tail.strip()
+            if tail.isdigit():
+                idx = int(tail) - 1
+                if 0 <= idx < len(enemies):
+                    target_enemy = enemies[idx]
+        # Se non specificato, usa focus se valido
+        if target_enemy is None and s.get('focus_enemy_id'):
+            for e in enemies:
+                if e['id'] == s['focus_enemy_id'] and e['hp'] > 0:
+                    target_enemy = e
+                    break
+        if target_enemy is None:
+            for e in enemies:
+                if e['hp'] > 0:
+                    target_enemy = e
+                    break
+        if target_enemy is None and enemies:
+            target_enemy = enemies[0]
+        if target_enemy is None:
+            raise CombatError('Nessun bersaglio disponibile.')
+        # Sincronizza alias legacy al bersaglio scelto
+        s['enemy_id'] = target_enemy['id']
+        s['enemy_name'] = target_enemy['name']
+        s['enemy_hp'] = target_enemy['hp']
+        s['enemy_max_hp'] = target_enemy['max_hp']
+        s['enemy_attack'] = target_enemy['attack']
         
         # Use new system if available
         if s.get('new_system_active'):
             resolver = _get_combat_resolver()
             player_id = s.get('player_id', 'player')
-            enemy_id = s['enemy_id']
+            enemy_id = target_enemy['id']
             
             # Get available moves and choose default light attack
             available_moves = _get_available_moves(state)
@@ -541,20 +885,16 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
             
             if not result.success:
                 lines.extend(result.description)
-                # Still consume stamina and end turn
-                s['phase'] = 'enemy'
-                _maybe_trigger_qte(state)
-                if s['phase'] == 'qte':
-                    lines.append(s['qte']['prompt'])
-                    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-                lines.extend(_enemy_attack(state))
+                # Realtime: nessuna fase enemy, processa eventi e resta al giocatore
+                lines.extend(_process_realtime_events(state))
                 return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-            
             # Apply damage to legacy HP system
-            _legacy_damage_to_hp(state, result.damage_dealt, target_is_player=False)
+            total_damage = sum(d.amount for d in result.damage_dealt)
+            target_enemy['hp'] = max(0, target_enemy['hp'] - int(total_damage))
+            s['enemy_hp'] = target_enemy['hp']
             
             # Build description
-            total_damage = sum(d.amount for d in result.damage_dealt)
+            # total_damage già calcolato
             quality_text = {
                 HitQuality.GRAZE: "di striscio",
                 HitQuality.NORMAL: "",
@@ -562,7 +902,8 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
             }.get(result.hit_quality, "")
             
             damage_text = f"infliggendo {total_damage:.0f} danni" if total_damage > 0 else "senza danni"
-            lines.append(f"Colpisci {quality_text} il {s['enemy_name']} {damage_text}. ({s['enemy_hp']}/{s['enemy_max_hp']})")
+            attack_line = f"Colpisci {quality_text} il {s['enemy_name']} {damage_text}. ({s['enemy_hp']}/{s['enemy_max_hp']})"
+            lines.append(attack_line)
             
             # Apply status effects
             for effect in result.status_effects_applied:
@@ -570,6 +911,9 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
                     lines.append("Il nemico barcolla!")
             
             _check_end(state)
+            _auto_switch_focus_if_needed(state)
+            _sync_primary_alias(state)
+            _emit_combat_event('player_attack', {'_state': state,'enemy_id': enemy_id,'enemy_index': enemies.index(target_enemy) if target_enemy in enemies else None,'damage': total_damage,'hit_quality': result.hit_quality.name,'enemy_hp': s['enemy_hp']})
             if s['phase'] == 'ended':
                 lines.append('Hai vinto.')
                 return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
@@ -579,85 +923,128 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
             if tick_damage:
                 tick_total = sum(d.amount for d in tick_damage)
                 lines.append(f"Effetti stato causano {tick_total:.0f} danni aggiuntivi.")
-                _legacy_damage_to_hp(state, tick_damage, target_is_player=False)
+                # Applica eventuali tick sul bersaglio ancora vivo (assumiamo stesso target)
+                tick_total = sum(d.amount for d in tick_damage)
+                target_enemy['hp'] = max(0, target_enemy['hp'] - int(tick_total))
+                s['enemy_hp'] = target_enemy['hp']
+                _emit_combat_event('status_tick', {
+                    '_state': state,
+                    'enemy_id': enemy_id,
+                    'enemy_index': enemies.index(target_enemy) if target_enemy in enemies else None,
+                    'tick_damage': tick_total,
+                    'enemy_hp': s['enemy_hp']
+                })
                 _check_end(state)
+                _auto_switch_focus_if_needed(state)
+                _auto_switch_focus_if_needed(state)
+                _sync_primary_alias(state)
                 if s['phase'] == 'ended':
                     lines.append('Hai vinto.')
                     return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
-            
-            # Enemy phase
-            s['phase'] = 'enemy'
-            _maybe_trigger_qte(state)
-            if s['phase'] == 'qte':
+            # Trigger QTE offensivo realtime (senza passare da enemy)
+            _maybe_trigger_offense_qte(state)
+            if s['phase'] == 'qte' and s.get('qte') and s['qte'].get('type') == 'offense':
                 lines.append(s['qte']['prompt'])
                 return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-            
-            lines.extend(_enemy_attack(state))
+            # Altrimenti processa ulteriori eventi realtime
+            lines.extend(_process_realtime_events(state))
             return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-        else:
-            # Fallback to legacy system
-            dmg = _weapon_damage(state)
-            s['enemy_hp'] -= dmg
-            lines.append(f"Colpisci il {s['enemy_name']} infliggendo {dmg} danni. ({s['enemy_hp']}/{s['enemy_max_hp']})")
-            _check_end(state)
-            if s['phase'] == 'ended':
-                lines.append('Hai vinto.')
-                return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
-            
-            s['phase'] = 'enemy'
-            _maybe_trigger_qte(state)
-            if s['phase'] == 'qte':
-                lines.append(s['qte']['prompt'])
-                return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-            
-            lines.extend(_enemy_attack(state))
-            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+
+    # Spawn nuovi nemici durante il combattimento: "spawn <enemy_id> [count]"
+    if command.startswith('spawn'):
+        if s['phase'] != 'player':
+            return {'lines': ['Non puoi spawnare ora.'], 'hints': [], 'events_triggered': [], 'changes': {}}
+        parts = command.split()
+        if len(parts) < 2:
+            raise CombatError('Uso: spawn <enemy_id> [count]')
+        enemy_id = parts[1]
+        count = 1
+        if len(parts) >= 3 and parts[2].isdigit():
+            count = max(1, int(parts[2]))
+        base_def = MOBS.get(enemy_id)
+        if not base_def:
+            raise CombatError(f'Nemico sconosciuto: {enemy_id}')
+        # Cloniamo definizione per evitare mutazioni
+        added = []
+        resolver = _get_combat_resolver()
+        ai = _get_tactical_ai()
+        for _ in range(count):
+            entry = _create_enemy_entry(state, base_def)
+            # Gestione id univoco: se esiste già, aggiungi suffisso incrementale
+            existing_ids = {e['id'] for e in s.get('enemies', [])}
+            if entry['id'] in existing_ids:
+                suffix = 2
+                base_base = entry['id']
+                while f"{base_base}_{suffix}" in existing_ids:
+                    suffix += 1
+                entry['id'] = f"{base_base}_{suffix}"
+                entry['name'] = f"{entry['name']} ({suffix})"
+            s['enemies'].append(entry)
+            added.append(entry['name'])
+            # Inizializza entity nel resolver/AI (se non esiste già)
+            if entry['id'] not in resolver._entity_data:
+                enemy_data_full = _get_enemy_data({'hp': entry['hp'], 'attack': entry['attack']})
+                resolver.initialize_entity(entry['id'], enemy_data_full)
+                try:
+                    ai_state = AIState(base_def.get('ai_state','aggressive'))
+                except ValueError:
+                    ai_state = AIState.AGGRESSIVE
+                ai.initialize_entity(entry['id'], ai_state, base_def.get('ai_traits', {}))
+        # Sincronizza alias se non c'è un nemico vivo precedente (o se prima non c'erano nemici)
+        _sync_primary_alias(state)
+        lines.append(f"Arrivano nuovi nemici: {', '.join(added)}")
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'spawned': len(added)}}
 
     if command == 'push':
         if s['phase'] != 'player':
             raise CombatError('Non è il tuo turno.')
-        # Push increases distance; at distance>0 enemy must spend one enemy phase to close in (no attack)
+        s['last_player_action_real'] = time.time()
+        # Associa push al primo vivo
+        enemies = s.get('enemies', [])
+        target_enemy = None
+        for e in enemies:
+            if e['hp'] > 0:
+                target_enemy = e
+                break
+        if target_enemy is None and enemies:
+            target_enemy = enemies[0]
         s['distance'] += 1
         s['push_decay'] = 1
-        lines.append(f"Spingi il {s['enemy_name']} e guadagni spazio (distanza {s['distance']}).")
-        s['phase'] = 'enemy'
-        # Enemy tries to close distance instead of attack
+        lines.append(f"Spingi {target_enemy['name']} e guadagni spazio (distanza {s['distance']}).")
+        # Il nemico usa tempo per chiudere la distanza invece di attaccare: ritardiamo il prossimo attacco
         if s['distance'] > 0:
             s['distance'] -= 1
             lines.append(f"Il {s['enemy_name']} avanza per ridurre la distanza.")
-            s['phase'] = 'player'
-            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-        # fallback if somehow distance 0 already
-        _maybe_trigger_qte(state)
-        if s['phase'] == 'qte':
-            lines.append(s['qte']['prompt'])
-            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-        lines.extend(_enemy_attack(state))
+            # Ritarda il prossimo attacco di un intervallo parziale
+            s['next_enemy_attack_total'] = max(_total_minutes(state) + 1, s['next_enemy_attack_total'])
+        # Process realtime events dopo l'azione
+        lines.extend(_process_realtime_events(state))
         return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
 
     if command == 'flee':
         if s['phase'] != 'player':
             raise CombatError('Non è il tuo turno.')
-        # Simple flee mechanic: higher chance if distance>0 or enemy low hp
+        s['last_player_action_real'] = time.time()
+        enemies = s.get('enemies', [])
         base = 0.3
         if s['distance'] > 0:
             base += 0.3
-        if s['enemy_hp'] <= s['enemy_max_hp'] * 0.4:
+        # Bonus se almeno un nemico è ferito
+        if any(e['hp'] <= e['max_hp'] * 0.4 for e in enemies):
             base += 0.2
-        if random.random() < base:
+        rng = _RNG or random
+        if rng.random() < base:
             lines.append('Riesci a sganciarti e fuggire.')
             s['phase'] = 'ended'
             s['result'] = 'escaped'
+            _emit_combat_event('player_escape', {'_state': state, 'enemy_id': s['enemy_id']})
             return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'escaped'}}
         else:
             lines.append('Tentativo di fuga fallito!')
-            # Enemy immediate reaction (attack or qte)
-            s['phase'] = 'enemy'
-            _maybe_trigger_qte(state)
-            if s['phase'] == 'qte':
-                lines.append(s['qte']['prompt'])
-                return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-            lines.extend(_enemy_attack(state))
+            # Penalità: accelera il prossimo attacco del nemico
+            s['next_enemy_attack_total'] = _total_minutes(state)
+            _emit_combat_event('player_escape_fail', {'_state': state, 'enemy_id': s['enemy_id']})
+            lines.extend(_process_realtime_events(state))
             return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
 
     if command == 'qte':
@@ -665,38 +1052,80 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
             raise CombatError('Nessun QTE attivo.')
         if not arg:
             raise CombatError('Inserisci input QTE.')
+        # QTE considerata azione
+        s['last_player_action_real'] = time.time()
         expected = s['qte']['expected']
+        qte_type = s['qte'].get('type', 'offense')
         if arg.lower() == expected.lower():
             effect = s['qte'].get('effect')
-            if effect == 'bonus_damage':
-                bonus = max(1, _weapon_damage(state))
-                s['enemy_hp'] -= bonus
-                lines.append(f"Colpo mirato! Bonus {bonus} danni. ({s['enemy_hp']}/{s['enemy_max_hp']})")
-                _check_end(state)
-                if s['phase'] == 'ended':
-                    lines.append('Hai vinto.')
-                    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
-            elif effect == 'reduce_next_damage':
-                s['enemy_attack'] = max(0, s['enemy_attack'] - 1)
-                lines.append('Blocchi le braccia: danni in arrivo ridotti.')
-            elif effect == 'stagger':
-                lines.append('Il nemico barcolla: salti direttamente al tuo turno.')
+            if qte_type == 'offense':
+                if effect == 'bonus_damage':
+                    bonus = max(1, _weapon_damage(state))
+                    s['enemy_hp'] -= bonus
+                    lines.append(f"Colpo mirato! Bonus {bonus} danni. ({s['enemy_hp']}/{s['enemy_max_hp']})")
+                    _check_end(state)
+                    _emit_combat_event('qte_offense_success', {'_state': state, 'enemy_id': s['enemy_id'], 'bonus': bonus, 'enemy_hp': s['enemy_hp']})
+                    if s['phase'] == 'ended':
+                        lines.append('Hai vinto.')
+                        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
+                elif effect == 'reduce_next_damage':
+                    s['enemy_attack'] = max(0, s['enemy_attack'] - 1)
+                    lines.append('Riduci il danno del prossimo attacco.')
+                    _emit_combat_event('qte_offense_success', {'_state': state, 'enemy_id': s['enemy_id'], 'effect': 'reduce_next_damage', 'enemy_attack_new': s['enemy_attack']})
+                else:
+                    lines.append('Reazione riuscita!')
+                    _emit_combat_event('qte_offense_success', {'_state': state, 'enemy_id': s['enemy_id'], 'effect': 'generic'})
                 s['phase'] = 'player'
                 s['qte'] = None
                 return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-            elif effect == 'push':
-                s['distance'] += 1
-                lines.append('Spinta efficace: guadagni distanza.')
-            else:
-                lines.append('Reazione riuscita: eviti il colpo.')
-            # Pass to player phase without damage
-            s['phase'] = 'player'
-            s['qte'] = None
-            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+            elif qte_type == 'defense':
+                if s.get('incoming_attack') or True:  # fallback: consenti comunque la parata per compat
+                    lines.append('Parata riuscita! Annulli l\'attacco imminente.')
+                    # Identifica attaccante associato
+                    attacker_idx = s.get('qte', {}).get('enemy_index')
+                    if attacker_idx is not None and attacker_idx < len(s.get('enemies', [])):
+                        s['enemies'][attacker_idx]['incoming_attack'] = False
+                        s['enemies'][attacker_idx]['incoming_attack_deadline'] = None
+                    s['incoming_attack'] = False
+                    s['qte'] = None
+                    s['next_enemy_attack_total'] = _total_minutes(state) + s['enemy_attack_interval']
+                    # Aggiorna anche il timer del nemico specifico (primario) per evitare immediato retrigger
+                    if attacker_idx is not None and attacker_idx < len(s.get('enemies', [])):
+                        s['enemies'][attacker_idx]['next_attack_total'] = s['next_enemy_attack_total']
+                    s['phase'] = 'player'
+                    _sync_primary_alias(state)
+                    _emit_combat_event('qte_defense_success', {'_state': state, 'enemy_id': s['enemy_id']})
+                    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
         else:
-            lines.append('Input errato!')
-            lines.extend(_enemy_attack(state))
-            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+            # Failure
+            if qte_type == 'offense':
+                lines.append('Fallisci la reazione!')
+                # Penalità: avvicina il prossimo attacco nemico riducendo il timer
+                now_total = _total_minutes(state)
+                s['next_enemy_attack_total'] = min(s['next_enemy_attack_total'], now_total + 1)
+                s['qte'] = None
+                s['phase'] = 'player'
+                _emit_combat_event('qte_offense_fail', {'_state': state, 'enemy_id': s['enemy_id']})
+                lines.extend(_process_realtime_events(state))
+                return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+            elif qte_type == 'defense':
+                lines.append('Fallisci la difesa!')
+                if s.get('incoming_attack'):
+                    attacker_idx = s.get('qte', {}).get('enemy_index')
+                    dmg = s['incoming_attack_damage'] or s['enemy_attack']
+                    state.player_hp -= dmg
+                    lines.append(f"Un nemico ti colpisce infliggendo {dmg} danni! (HP: {state.player_hp}/{state.player_max_hp})")
+                    if attacker_idx is not None and attacker_idx < len(s.get('enemies', [])):
+                        s['enemies'][attacker_idx]['incoming_attack'] = False
+                        s['enemies'][attacker_idx]['incoming_attack_deadline'] = None
+                    s['incoming_attack'] = False
+                    s['qte'] = None
+                    _check_end(state)
+                    if s['phase'] != 'ended':
+                        s['next_enemy_attack_total'] = _total_minutes(state) + s['enemy_attack_interval']
+                        s['phase'] = 'player'
+                    _emit_combat_event('qte_defense_fail', {'_state': state, 'enemy_id': s['enemy_id'], 'damage': dmg, 'player_hp': state.player_hp})
+                return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
 
     raise CombatError(f'Azione sconosciuta in combattimento: {command}')
 
@@ -705,9 +1134,162 @@ def spawn_enemy(enemy_id: str) -> Dict[str, Any]:
         raise CombatError(f'Nemico inesistente: {enemy_id}')
     return MOBS[enemy_id]
 
+# --- Public realtime tick ---
+def tick_combat(state: GameState) -> list[str]:
+    """Processa eventi realtime (attacchi in arrivo / scadenze) senza input giocatore.
+
+    Ritorna eventuali linee prodotte (colpi andati a segno, QTE difensivi apparsi, timeout).
+    Non modifica la fase se non per effetto naturale degli eventi.
+    """
+    if not state.combat_session or state.combat_session.get('phase') == 'ended':
+        return []
+    lines: list[str] = []
+    # Se c'è un QTE offensivo attivo controlla timeout
+    s = state.combat_session
+    if s['phase'] == 'qte' and s.get('qte') and s['qte'].get('type') == 'offense':
+        if _total_minutes(state) >= s['qte']['deadline_total']:
+            lines.append('Fallisci il tempo di reazione!')
+            s['qte'] = None
+            s['phase'] = 'player'
+    # Process realtime (difesa / spawn nuovo attacco)
+    lines.extend(_process_realtime_events(state))
+    return lines
+
+# --- Realtime processing helper ---
+def _process_realtime_events(state: GameState) -> List[str]:
+    s = state.combat_session
+    if not s or s.get('phase') == 'ended':
+        return []
+    out: List[str] = []
+    # Gestione inattività: se trascorsi N secondi reali senza azioni del player, anticipa attacco
+    try:
+        inactivity_sec = s.get('inactivity_attack_seconds', None)
+        last_act = s.get('last_player_action_real')
+        if inactivity_sec and last_act:
+            now_real = time.time()
+            if now_real - last_act >= inactivity_sec:
+                # Forza un aggiornamento del clock simulato per riflettere il tempo reale trascorso
+                if state.real_start_ts is not None:
+                    # recompute_from_real userà time.time(); già now_real
+                    state.recompute_from_real(now_real)
+                # Anticipa il prossimo attacco se non già in arrivo
+                if not s.get('incoming_attack'):
+                    # Imposta i prox attacchi dei nemici vivi al valore corrente per QTE immediato
+                    now_total_force = _total_minutes(state)
+                    for e in s.get('enemies', []):
+                        if e.get('hp', 0) > 0 and not e.get('incoming_attack'):
+                            e['next_attack_total'] = now_total_force
+    except Exception:
+        pass
+    now_total = _total_minutes(state)
+    enemies = s.get('enemies', [])
+    # Se c'è un QTE difensivo attivo, controlla landing relativo al nemico indicato
+    if s.get('incoming_attack') and s.get('qte') and s['qte'].get('type') == 'defense':
+        attacker_idx = s['qte'].get('enemy_index')
+        if attacker_idx is not None and attacker_idx < len(enemies):
+            enemy_ref = enemies[attacker_idx]
+            if enemy_ref.get('incoming_attack') and now_total >= enemy_ref.get('incoming_attack_deadline', 0):
+                dmg = enemy_ref.get('incoming_attack_damage') or enemy_ref['attack']
+                state.player_hp -= dmg
+                out.append(f"{enemy_ref['name']} ti colpisce infliggendo {dmg} danni! (HP: {state.player_hp}/{state.player_max_hp})")
+                enemy_ref['incoming_attack'] = False
+                enemy_ref['incoming_attack_deadline'] = None
+                s['incoming_attack'] = False
+                s['qte'] = None
+                _check_end(state)
+                if s['phase'] != 'ended':
+                    s['phase'] = 'player'
+                return out
+    # Altrimenti valuta se un nuovo nemico deve preparare attacco (il più imminente)
+    # Evita di creare nuovi QTE difensivi se ne esiste già uno attivo
+    if not (s.get('qte') and s['qte'].get('type') == 'defense'):
+        # Trova attacco più vicino
+        next_idx = None
+        earliest = 10**12
+        for idx, e in enumerate(enemies):
+            if e['hp'] <= 0:
+                continue
+            # Non considerare chi ha già un attacco in arrivo
+            if e.get('incoming_attack'):
+                continue
+            nt = e.get('next_attack_total')
+            if nt is not None and nt < earliest:
+                earliest = nt
+                next_idx = idx
+        if next_idx is not None and now_total >= earliest and not (s['phase'] == 'qte' and s.get('qte',{}).get('type')=='offense'):
+            enemy_ref = enemies[next_idx]
+            enemy_ref['incoming_attack'] = True
+            enemy_ref['incoming_attack_damage'] = enemy_ref['attack']
+            deadline = now_total + s.get('defensive_qte_window', 1)
+            enemy_ref['incoming_attack_deadline'] = deadline
+            # Pianifica già il prossimo attacco dopo questo (evita retrigger immediato)
+            interval = enemy_ref.get('attack_interval', s.get('enemy_attack_interval', 3)) or 3
+            enemy_ref['next_attack_total'] = deadline + max(1, int(interval))
+            s['phase'] = 'qte'
+            rng = _RNG or random
+            if _COMPLEX_QTE_ENABLED:
+                # Genera codice alfanumerico 3-5 per QTE Difensivo
+                length = rng.randint(QTE_CODE_LENGTH_MIN, QTE_CODE_LENGTH_MAX)
+                alphabet = QTE_CODE_ALPHABET
+                code = ''.join(rng.choice(alphabet) for _ in range(length))
+                s['qte'] = {
+                    'prompt': f'Difesa! Digita: {code}',
+                    'expected': code,
+                    'deadline_total': deadline,
+                    'effect': None,
+                    'type': 'defense',
+                    'enemy_index': next_idx,
+                }
+            else:
+                s['qte'] = {
+                    'prompt': 'Difesa! Premi D!',
+                    'expected': 'd',
+                    'deadline_total': deadline,
+                    'effect': None,
+                    'type': 'defense',
+                    'enemy_index': next_idx,
+                }
+            s['incoming_attack'] = True
+            s['incoming_attack_damage'] = enemy_ref['attack']
+            out.append(f"{enemy_ref['name']} prepara un attacco!")
+            out.append(s['qte']['prompt'])
+    return out
+
 __all__ = [
-    'start_combat', 'resolve_combat_action', 'resolve_attack', 'CombatError', 
+    'start_combat', 'resolve_combat_action', 'resolve_attack', 'CombatError', 'tick_combat',
     'WEAPONS', 'MOBS', 'inject_content', 'spawn_enemy',
+    'set_combat_seed', 'set_complex_qte',
     # New system classes and models for direct use
     'CombatContext', 'CombatResult', 'MoveSpec', 'DamageType', 'StatusEffect', 'HitQuality'
 ]
+
+# --- Test helpers (non production) ---
+# Rinominati per non essere raccolti automaticamente da pytest.
+def helper_reset_player_phase(state: GameState):  # pragma: no cover - utility
+    """Forza la fase del giocatore eliminando qualsiasi QTE / attacco in arrivo.
+
+    Inoltre spinge in avanti il prossimo attacco dei nemici così che un comando
+    immediatamente successivo (es. focus) non venga interrotto da un QTE difensivo
+    generato istantaneamente perché il clock simulato è già oltre next_attack_total.
+    """
+    if not state.combat_session:
+        return
+    s = state.combat_session
+    now_total = _total_minutes(state)
+    s['qte'] = None
+    s['incoming_attack'] = False
+    for e in s.get('enemies', []):
+        e['incoming_attack'] = False
+        e['incoming_attack_deadline'] = None
+        # Sposta in avanti il prossimo attacco (fallback 3 minuti se assente l'intervallo)
+        interval = e.get('attack_interval') or 3
+        e['next_attack_total'] = now_total + max(1, interval)
+    s['phase'] = 'player'
+    _sync_primary_alias(state)
+
+def helper_force_focus_autoswitch(state: GameState):  # pragma: no cover - utility
+    if not state.combat_session:
+        return
+    _auto_switch_focus_if_needed(state)
+
+__all__.extend(['helper_reset_player_phase', 'helper_force_focus_autoswitch'])

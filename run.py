@@ -9,80 +9,178 @@ Then type commands:
 """
 from __future__ import annotations
 from game.bootstrap import load_world_and_state
+import difflib
 from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn
-from engine.core.combat import inject_content
+from engine.core.combat import inject_content, tick_combat, set_complex_qte
+from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
 
 PROMPT = "> "
 
+COMMAND_HELP = {
+    'look': {'usage': 'look', 'desc': 'Descrive l\'area attuale con eventuale linea ambientale.'},
+    'go': {'usage': 'go <direzione>', 'desc': 'Muove verso una direzione valida (n, s, e, w, ...).'},
+    'wait': {'usage': 'wait [minuti]  |  wait until <fase>', 'desc': 'Avanza il tempo simulato; until: mattina|giorno|sera|notte.'},
+    'status': {'usage': 'status', 'desc': 'Mostra orario/meteo/clima e (se in combattimento) stato nemici.'},
+    'time': {'usage': 'time', 'desc': 'Alias di status.'},
+    'where': {'usage': 'where', 'desc': 'Mostra macro->micro e tag stanza.'},
+    'inspect': {'usage': 'inspect <oggetto>', 'desc': 'Osservazione base; sblocca examine e search.'},
+    'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).'},
+    'search': {'usage': 'search <oggetto>', 'desc': 'Ricerca minuziosa (richiede examine precedente).'},
+    'spawn': {'usage': 'spawn <enemy_id> [count]', 'desc': 'Genera 1 o più nemici (se in combattimento li aggiunge alla battaglia).'},
+    'attack': {'usage': 'attack [index] | attack all', 'desc': 'Attacca il bersaglio (indice) oppure tutti (all, 50% danno).'},
+    'focus': {'usage': 'focus <index>', 'desc': 'Imposta il bersaglio focalizzato usato dagli attacchi senza indice.'},
+    'qte': {'usage': 'qte <tasto>', 'desc': 'Risponde a QTE attivo (offense/defense).'},
+    'push': {'usage': 'push', 'desc': 'Spingi indietro il nemico, ritardando il prossimo attacco.'},
+    'flee': {'usage': 'flee', 'desc': 'Tenta di fuggire; chance aumentata con distanza o nemico ferito.'},
+    'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.'},
+    'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.'},
+    'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.'},
+}
+
 def help_lines():
-    return [
-        "Comandi disponibili:",
-        " look                       - descrive l'area attuale",
-        " go <dir>                   - muoviti nella direzione indicata (n, s, e, w, ...)",
-        " wait [min]                 - attendi un certo numero di minuti (default 10)",
-        " wait until <fase>          - salta alla fase (mattina|giorno|sera|notte)",
-        " status | time              - mostra orario, giorno, meteo e clima",
-        " where                      - macro -> micro corrente e tag stanza",
-        " inspect <obj>              - osservazione base (sblocca livelli successivi)",
-        " examine <obj>              - ispezione approfondita (richiede inspect precedente)",
-        " search <obj>               - ricerca minuziosa (richiede inspect ed examine)",
-        " spawn <enemy_id>           - genera un nemico e avvia combattimento (debug/manuale)",
-        " attack                     - attacca il nemico (se in combattimento)",
-        " qte <input>                - risposta al prompt QTE attivo (lettera)",
-        " push                       - spingi indietro il nemico (guadagni distanza)",
-        " flee                       - tenta la fuga dal combattimento",
-        " menu                       - torna al menu principale senza uscire dal programma",
-        " help                       - mostra questo elenco di comandi",
-        " quit | exit                - esci dalla partita corrente (o dal menu principale)",
-    ]
+    lines = ["Comandi disponibili:"]
+    max_usage = max(len(info['usage']) for info in COMMAND_HELP.values())
+    for name, info in COMMAND_HELP.items():
+        usage = info['usage']
+        desc = info['desc']
+        lines.append(f" {usage.ljust(max_usage)}  - {desc}")
+    return lines
 
 def game_loop():
     registry, state = load_world_and_state()
-    # Carica asset combattimento dinamici
     weapons, mobs = load_combat_content()
     inject_content(weapons, mobs)
+    # Abilita QTE complessi in base alla config
+    try:
+        set_complex_qte(DEFAULT_COMPLEX_QTE_ENABLED)
+    except Exception:
+        pass
     print("-- Nuova partita avviata. Digita 'help' per l'elenco comandi. --")
+    import time as _t
+    # Avvia un ticker in background per far progredire il combattimento anche durante l'input bloccante
+    import threading as _th
+    _stop_event = _th.Event()
+
+    def _bg_ticker():
+        while not _stop_event.is_set():
+            try:
+                now_r = _t.time()
+                # Aggiorna il tempo reale e processa eventi di combattimento
+                state.recompute_from_real(now_r)
+                lines = tick_combat(state)
+                if lines:
+                    for l in lines:
+                        print(l)
+                    # Ripresenta il prompt, dato che potremmo aver stampato durante input()
+                    try:
+                        print(PROMPT, end="", flush=True)
+                    except Exception:
+                        pass
+                # Frequenza di tick configurabile
+                _stop_event.wait(CLI_TICK_INTERVAL_SECONDS)
+            except Exception:
+                # In caso di errore inatteso, rallenta e continua
+                _stop_event.wait(0.5)
+
+    _ticker = _th.Thread(target=_bg_ticker, name="combat-ticker", daemon=True)
+    _ticker.start()
     while True:
         cmd = input(PROMPT).strip()
+        # Shortcut QTE handling: se siamo in QTE accetta direttamente l'input digitato,
+        # sia singolo carattere, sia stringa alfanumerica (per QTE complessi 3-5).
+        try:
+            if cmd:
+                sess = getattr(state, 'combat_session', None)
+                if sess and sess.get('phase') == 'qte' and sess.get('qte'):
+                    # Passa direttamente l'input così com'è alla logica QTE
+                    res = combat_action(state, registry, 'qte', cmd)
+                    for line in res["lines"]:
+                        print(line)
+                    continue  # passa al prossimo input loop
+        except Exception:
+            # Non deve interrompere il loop in caso di problemi marginali
+            pass
         if not cmd:
             continue
         if cmd in {"quit", "exit"}:
             print("Arrivederci.")
+            try:
+                _stop_event.set()
+                _ticker.join(timeout=1.0)
+            finally:
+                pass
             break
         if cmd == "menu":
             print("Ritorno al menu principale...")
-            return  # ritorna al menu esterno
-        if cmd == "help":
-            for line in help_lines():
-                print(line)
+            try:
+                _stop_event.set()
+                _ticker.join(timeout=1.0)
+            finally:
+                pass
+            return
+        if cmd.startswith("help"):
+            parts = cmd.split(maxsplit=1)
+            if len(parts) == 1:
+                for line in help_lines():
+                    print(line)
+            else:
+                topic = parts[1].strip()
+                info = COMMAND_HELP.get(topic)
+                if info:
+                    print(f"Uso: {info['usage']}\n{info['desc']}")
+                else:
+                    close = difflib.get_close_matches(topic, COMMAND_HELP.keys(), n=3)
+                    if close:
+                        print(f"Comando '{topic}' non trovato. Forse intendevi: {', '.join(close)}")
+                    else:
+                        print(f"Comando '{topic}' non trovato.")
             continue
         try:
             if cmd == "look":
                 res = look(state, registry)
-            elif cmd.startswith("go "):
-                direction = cmd[3:].strip()
+            elif cmd.startswith("go"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: go <direzione> (es: go n)")
+                    continue
+                direction = parts[1].strip()
+                if not direction:
+                    print("Uso: go <direzione>")
+                    continue
                 res = go(state, registry, direction)
             elif cmd in {"status", "time"}:
                 res = status(state, registry)
             elif cmd == "where":
                 res = where(state, registry)
-            elif cmd.startswith("inspect "):
-                target = cmd[len("inspect "):].strip()
+            elif cmd.startswith("inspect"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: inspect <oggetto>")
+                    continue
+                target = parts[1].strip()
                 if not target:
-                    print("Uso: inspect <id|alias>")
+                    print("Uso: inspect <oggetto>")
                     continue
                 res = inspect(state, registry, target)
-            elif cmd.startswith("examine "):
-                target = cmd[len("examine "):].strip()
+            elif cmd.startswith("examine"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: examine <oggetto>")
+                    continue
+                target = parts[1].strip()
                 if not target:
-                    print("Uso: examine <id|alias>")
+                    print("Uso: examine <oggetto>")
                     continue
                 res = examine(state, registry, target)
-            elif cmd.startswith("search "):
-                target = cmd[len("search "):].strip()
+            elif cmd.startswith("search"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: search <oggetto>")
+                    continue
+                target = parts[1].strip()
                 if not target:
-                    print("Uso: search <id|alias>")
+                    print("Uso: search <oggetto>")
                     continue
                 res = search(state, registry, target)
             elif cmd.startswith("wait"):
@@ -100,20 +198,50 @@ def game_loop():
                     else:
                         mins = 10
                     res = wait(state, registry, mins)
-            elif cmd.startswith("spawn "):
-                enemy_id = cmd.split(maxsplit=1)[1].strip()
-                res = spawn(state, registry, enemy_id)
-            elif cmd == "attack":
-                res = combat_action(state, registry, 'attack')
-            elif cmd.startswith("qte "):
-                arg = cmd.split(maxsplit=1)[1].strip()
+            elif cmd.startswith("spawn"):
+                # Supporta count: spawn <enemy_id> [count]
+                parts = cmd.split()
+                if len(parts) < 2:
+                    print("Uso: spawn <enemy_id> [count]")
+                    continue
+                enemy_id = parts[1]
+                count = 1
+                if len(parts) >= 3 and parts[2].isdigit():
+                    count = max(1, int(parts[2]))
+                # Se non in combattimento usa engage singolo; altrimenti usa comando combat_action interno
+                if not state.combat_session or state.combat_session.get('phase') == 'ended':
+                    # Spawna primo nemico: se count>1 il resto viene aggiunto via comando spawn interno dopo engage
+                    res = spawn(state, registry, enemy_id)
+                    if count > 1:
+                        # delega alle azioni combat per aggiungere gli altri
+                        combat_action(state, registry, f"spawn {enemy_id} {count-1}")
+                else:
+                    res = combat_action(state, registry, f"spawn {enemy_id} {count}")
+            elif cmd.startswith("attack"):
+                # attack o attack <index>
+                res = combat_action(state, registry, cmd)
+            elif cmd.startswith("focus"):
+                res = combat_action(state, registry, cmd)
+            elif cmd.startswith("qte"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: qte <tasto>")
+                    continue
+                arg = parts[1].strip()
+                if not arg:
+                    print("Uso: qte <tasto>")
+                    continue
                 res = combat_action(state, registry, 'qte', arg)
             elif cmd == "push":
                 res = combat_action(state, registry, 'push')
             elif cmd == "flee":
                 res = combat_action(state, registry, 'flee')
             else:
-                print("Comando sconosciuto.")
+                close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
+                if close:
+                    print(f"Comando sconosciuto: '{cmd}'. Forse intendevi: {', '.join(close)}")
+                else:
+                    print(f"Comando sconosciuto: '{cmd}'. Digita 'help' per elenco oppure 'help <comando>' per dettagli.")
                 continue
             for line in res["lines"]:
                 print(line)
@@ -134,7 +262,6 @@ def main_menu():
         choice = input(PROMPT).strip().lower()
         if choice in {"1", "i", "inizia", "start", "s"}:
             game_loop()
-            # Ristampa il menu dopo il ritorno dal game loop
             print(deco)
             print(title)
             print(deco)
@@ -143,7 +270,7 @@ def main_menu():
         elif choice in {"2", "q", "quit", "exit"}:
             print("Arrivederci.")
             break
-        elif choice == "help":  # accessibile anche qui per comodità
+        elif choice == "help":
             for line in help_lines():
                 print(line)
         else:

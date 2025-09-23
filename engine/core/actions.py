@@ -532,11 +532,27 @@ def engage(state: GameState, registry: ContentRegistry, enemy_def: dict) -> Dict
 
     enemy_def minimo: {id, name, hp, attack, qte_chance, qte_prompt, qte_expected, qte_window_minutes}
     """
-    return combat.start_combat(state, registry, enemy_def)
+    result = combat.start_combat(state, registry, enemy_def)
+    # Tick immediato per gestire eventuali eventi (in futuro: spawn multipli ecc.)
+    tick_lines = combat.tick_combat(state)
+    if tick_lines:
+        result['lines'].extend(tick_lines)
+    return result
 
 def combat_action(state: GameState, registry: ContentRegistry, command: str, arg: str | None = None) -> Dict[str, object]:
-    """Esegue un'azione durante il combattimento: attack | status | qte <input> | push | flee."""
-    return combat.resolve_combat_action(state, registry, command, arg)
+    """Esegue un'azione durante il combattimento: attack | status | qte <input> | push | flee.
+
+    Prima dell'azione processa un tick realtime (timer attacchi / scadenze QTE), poi esegue il comando,
+    infine esegue un secondo tick per catturare eventuali attacchi che vanno a segno nel frattempo.
+    """
+    pre_lines = combat.tick_combat(state)
+    core = combat.resolve_combat_action(state, registry, command, arg)
+    post_lines = combat.tick_combat(state)
+    if pre_lines:
+        core['lines'] = pre_lines + core['lines']
+    if post_lines:
+        core['lines'].extend(post_lines)
+    return core
 
 def spawn(state: GameState, registry: ContentRegistry, enemy_id: str) -> Dict[str, object]:
     enemy_def = combat.spawn_enemy(enemy_id)

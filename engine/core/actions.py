@@ -744,6 +744,7 @@ def stats(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
 def use_item(state: GameState, registry: ContentRegistry, item_name: str) -> Dict[str, Any]:
     """Use an item from inventory."""
     from ..stats import apply_item_effects
+    from ..items import get_item_registry
     
     lines = []
     
@@ -784,6 +785,8 @@ def use_item(state: GameState, registry: ContentRegistry, item_name: str) -> Dic
 
 def equip_item(state: GameState, registry: ContentRegistry, item_name: str) -> Dict[str, Any]:
     """Equip an item from inventory."""
+    from ..items import get_item_registry
+    
     lines = []
     
     # Initialize systems
@@ -833,6 +836,8 @@ def unequip_item(state: GameState, registry: ContentRegistry, slot_or_item: str)
 
 def drop_item(state: GameState, registry: ContentRegistry, item_name: str, quantity: int = 1) -> Dict[str, Any]:
     """Drop item from inventory."""
+    from ..items import get_item_registry
+    
     lines = []
     
     # Initialize systems
@@ -862,6 +867,8 @@ def drop_item(state: GameState, registry: ContentRegistry, item_name: str, quant
 
 def examine_item(state: GameState, registry: ContentRegistry, item_name: str) -> Dict[str, Any]:
     """Examine an item in detail."""
+    from ..items import get_item_registry
+    
     lines = []
     
     # Find item by name or ID
@@ -934,6 +941,7 @@ def _get_player_inventory(state: GameState):
         inventory.add("medkit", 1)
         inventory.add("canned_beans", 2)
         inventory.add("cloth", 3)
+        inventory.add("hunting_knife", 1)  # Add for testing
     
     return inventory
 

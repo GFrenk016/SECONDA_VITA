@@ -40,7 +40,7 @@ COMMAND_HELP = {
     'equip': {'usage': 'equip <oggetto>', 'desc': 'Equipaggia un oggetto dall\'inventario.'},
     'unequip': {'usage': 'unequip <slot|oggetto>', 'desc': 'Rimuove oggetto equipaggiato.'},
     'drop': {'usage': 'drop <oggetto> [quantità]', 'desc': 'Lascia cadere oggetto dall\'inventario.'},
-    'examine': {'usage': 'examine <oggetto>', 'desc': 'Esamina oggetto in dettaglio.'},
+    'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).'},
     'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.'},
     'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.'},
     'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.'},
@@ -202,7 +202,15 @@ def game_loop():
                 if not target:
                     print("Uso: examine <oggetto>")
                     continue
-                res = examine(state, registry, target)
+                # Try new item examine first, then fall back to old examine
+                try:
+                    res = examine_item(state, registry, target)
+                    # If item not found, try the old examine command
+                    if res["lines"] and "non trovato" in res["lines"][0]:
+                        res = examine(state, registry, target)
+                except Exception:
+                    # Fall back to old examine
+                    res = examine(state, registry, target)
             elif cmd.startswith("search"):
                 parts = cmd.split(maxsplit=1)
                 if len(parts) == 1:
@@ -320,7 +328,15 @@ def game_loop():
                 if not item_name:
                     print("Uso: examine <oggetto>")
                     continue
-                res = examine_item(state, registry, item_name)
+                # Try new item examine first, then fall back to old examine
+                try:
+                    res = examine_item(state, registry, item_name)
+                    # If item not found, try the old examine command
+                    if res["lines"] and "non trovato" in res["lines"][0]:
+                        res = examine(state, registry, item_name)
+                except Exception:
+                    # Fall back to old examine
+                    res = examine(state, registry, item_name)
             else:
                 close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
                 if close:

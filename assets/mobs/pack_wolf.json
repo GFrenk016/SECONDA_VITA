@@ -1,0 +1,35 @@
+{
+  "id": "pack_wolf",
+  "name": "Lupo del Branco",
+  "hp": 6,
+  "attack": 2,
+  "attack_variance": 1,
+  "max_stamina": 80,
+  "max_posture": 70.0,
+  "stagger_threshold": 0.25,
+  "weapon_handling": 0.4,
+  "resistances": {
+    "blunt": 1.0,
+    "slash": 0.9,
+    "pierce": 1.1,
+    "bleed": 0.8,
+    "burn": 1.2,
+    "shock": 1.0
+  },
+  "ai_state": "pack",
+  "ai_traits": {
+    "pack_hunter": true,
+    "always_aggressive": false
+  },
+  "qte_chance": 0.4,
+  "qte_window_minutes": 1,
+  "qte_prompts": [
+    {"part": "morso", "prompt": "Evita il morso! (M)", "expected": "m", "effect": "stagger"},
+    {"part": "zampe", "prompt": "Schiva le zampe! (Z)", "expected": "z", "effect": "push"},
+    {"part": "balzo", "prompt": "Anticipa il balzo! (A)", "expected": "a", "effect": "reduce_next_damage"}
+  ],
+  "loot": [
+    {"item": "pelliccia", "chance": 0.5},
+    {"item": "zanna", "chance": 0.2}
+  ]
+}

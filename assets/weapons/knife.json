@@ -2,8 +2,32 @@
   "id": "knife",
   "name": "Coltello",
   "damage": 3,
+  "damage_type": "slash",
+  "reach": 1,
+  "noise_level": 1,
   "crit_chance": 0.1,
   "crit_multiplier": 2.0,
   "tags": ["melee", "blade"],
-  "description": "Un coltello affilato, ideale per colpi mirati alla testa di un vagante."
+  "description": "Un coltello affilato, ideale per colpi mirati alla testa di un vagante.",
+  "movesets": {
+    "light": {
+      "stamina_cost": 10,
+      "windup": 1,
+      "recovery": 1,
+      "damage_multiplier": 0.8
+    },
+    "heavy": {
+      "stamina_cost": 25,
+      "windup": 2,
+      "recovery": 2,
+      "damage_multiplier": 1.4
+    },
+    "thrust": {
+      "stamina_cost": 15,
+      "windup": 1,
+      "recovery": 1,
+      "damage_multiplier": 1.1,
+      "status_effects": [["bleed", 3, 1.0]]
+    }
+  }
 }

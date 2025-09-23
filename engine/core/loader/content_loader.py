@@ -7,7 +7,7 @@ from __future__ import annotations
 import json, os
 from typing import Dict, Any, Tuple
 
-ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'assets')
+ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'assets')
 WEAPONS_DIR = os.path.join(ASSETS_DIR, 'weapons')
 MOBS_DIR = os.path.join(ASSETS_DIR, 'mobs')
 

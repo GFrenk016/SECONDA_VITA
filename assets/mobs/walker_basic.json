@@ -4,6 +4,23 @@
   "hp": 8,
   "attack": 2,
   "attack_variance": 1,
+  "max_stamina": 60,
+  "max_posture": 50.0,
+  "stagger_threshold": 0.35,
+  "weapon_handling": 0.3,
+  "resistances": {
+    "blunt": 0.8,
+    "slash": 1.2,
+    "pierce": 1.0,
+    "bleed": 1.0,
+    "burn": 1.5,
+    "shock": 0.9
+  },
+  "ai_state": "aggressive",
+  "ai_traits": {
+    "always_aggressive": true,
+    "pack_hunter": false
+  },
   "qte_chance": 0.6,
   "qte_window_minutes": 2,
   "qte_prompts": [

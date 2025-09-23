@@ -1,0 +1,176 @@
+{
+  "items": [
+    {
+      "id": "medkit",
+      "name": "Medkit",
+      "type": "consumable",
+      "weight": 0.4,
+      "stack_max": 3,
+      "effects": [{"heal": 35}],
+      "value": 15,
+      "description": "A medical kit that quickly restores health."
+    },
+    {
+      "id": "canned_beans",
+      "name": "Canned Beans",
+      "type": "consumable",
+      "weight": 0.5,
+      "stack_max": 5,
+      "effects": [{"restore": {"energy": 20}}],
+      "value": 5,
+      "description": "Nutritious canned beans that restore energy."
+    },
+    {
+      "id": "hunting_knife",
+      "name": "Hunting Knife",
+      "type": "weapon",
+      "weight": 0.8,
+      "stack_max": 1,
+      "equip_slot": "main_hand",
+      "durability": 100,
+      "value": 25,
+      "effects": [{"buff": {"stat": "crit_chance", "amount": 5, "duration_ticks": 0}}],
+      "tags": ["weapon", "melee"],
+      "description": "A sharp hunting knife, excellent for close combat."
+    },
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "type": "consumable",
+      "weight": 0.1,
+      "stack_max": 10,
+      "effects": [{"heal": 15}],
+      "value": 3,
+      "tags": ["medical"],
+      "description": "A simple bandage for treating minor wounds."
+    },
+    {
+      "id": "cloth",
+      "name": "Cloth",
+      "type": "material",
+      "weight": 0.1,
+      "stack_max": 10,
+      "value": 2,
+      "tags": ["crafting"],
+      "description": "Simple cloth fabric, useful for crafting."
+    },
+    {
+      "id": "metal_scrap",
+      "name": "Metal Scrap",
+      "type": "material",
+      "weight": 0.3,
+      "stack_max": 5,
+      "value": 8,
+      "tags": ["crafting", "metal"],
+      "description": "Pieces of scrap metal that can be repurposed."
+    },
+    {
+      "id": "adhesive",
+      "name": "Adhesive",
+      "type": "material",
+      "weight": 0.2,
+      "stack_max": 3,
+      "value": 12,
+      "tags": ["crafting"],
+      "description": "Strong adhesive for repairs and crafting."
+    },
+    {
+      "id": "leather_jacket",
+      "name": "Leather Jacket",
+      "type": "armor",
+      "weight": 1.2,
+      "stack_max": 1,
+      "equip_slot": "body",
+      "durability": 80,
+      "value": 45,
+      "effects": [
+        {"buff": {"stat": "cold_resistance", "amount": 15, "duration_ticks": 0}},
+        {"buff": {"stat": "agility", "amount": 1, "duration_ticks": 0}}
+      ],
+      "tags": ["armor", "light"],
+      "description": "A worn leather jacket that provides some protection from the elements."
+    },
+    {
+      "id": "steel_boots",
+      "name": "Steel-toed Boots",
+      "type": "armor",
+      "weight": 1.5,
+      "stack_max": 1,
+      "equip_slot": "feet",
+      "durability": 120,
+      "value": 35,
+      "effects": [{"buff": {"stat": "strength", "amount": 2, "duration_ticks": 0}}],
+      "tags": ["armor", "heavy"],
+      "description": "Heavy steel-toed boots that provide excellent protection."
+    },
+    {
+      "id": "lucky_charm",
+      "name": "Lucky Charm",
+      "type": "armor",
+      "weight": 0.1,
+      "stack_max": 1,
+      "equip_slot": "accessory",
+      "value": 20,
+      "effects": [{"buff": {"stat": "luck", "amount": 3, "duration_ticks": 0}}],
+      "tags": ["accessory", "luck"],
+      "description": "A small charm that seems to bring good fortune."
+    },
+    {
+      "id": "wood",
+      "name": "Wood",
+      "type": "material",
+      "weight": 0.5,
+      "stack_max": 8,
+      "value": 3,
+      "tags": ["crafting", "natural"],
+      "description": "Sturdy pieces of wood, good for construction and crafting."
+    },
+    {
+      "id": "fiber",
+      "name": "Plant Fiber",
+      "type": "material",
+      "weight": 0.1,
+      "stack_max": 15,
+      "value": 1,
+      "tags": ["crafting", "natural"],
+      "description": "Strong plant fibers that can be woven into rope or cloth."
+    },
+    {
+      "id": "rock",
+      "name": "Rock",
+      "type": "material",
+      "weight": 0.8,
+      "stack_max": 5,
+      "value": 2,
+      "tags": ["crafting", "natural"],
+      "description": "Solid chunks of rock, useful for tools and construction."
+    },
+    {
+      "id": "energy_drink",
+      "name": "Energy Drink",
+      "type": "consumable",
+      "weight": 0.3,
+      "stack_max": 3,
+      "effects": [
+        {"restore": {"energy": 35}},
+        {"buff": {"stat": "agility", "amount": 2, "duration_ticks": 120}}
+      ],
+      "value": 18,
+      "description": "A makeshift energy drink that boosts stamina and agility temporarily."
+    },
+    {
+      "id": "antidote",
+      "name": "Antidote",
+      "type": "consumable",
+      "weight": 0.2,
+      "stack_max": 2,
+      "effects": [
+        {"heal": 10},
+        {"buff": {"stat": "poison_resistance", "amount": 50, "duration_ticks": 240}}
+      ],
+      "value": 30,
+      "tags": ["medical", "rare"],
+      "description": "A potent antidote that cures poison and provides temporary immunity."
+    }
+  ]
+}

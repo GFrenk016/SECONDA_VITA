@@ -1,0 +1,101 @@
+{
+  "recipes": [
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "station": "craft_bench",
+      "inputs": [["cloth", 2]],
+      "output": ["bandage", 3],
+      "time": 30,
+      "tags": ["medical", "basic"],
+      "description": "Craft bandages from cloth for basic wound treatment."
+    },
+    {
+      "id": "knife_repair",
+      "name": "Knife Repair",
+      "station": "craft_bench",
+      "inputs": [["metal_scrap", 2], ["adhesive", 1]],
+      "output": ["hunting_knife", 1],
+      "time": 120,
+      "tags": ["repair", "weapon"],
+      "description": "Repair or craft a hunting knife using scrap metal and adhesive."
+    },
+    {
+      "id": "energy_drink",
+      "name": "Energy Drink",
+      "inputs": [["canned_beans", 1], ["cloth", 1]],
+      "output": ["energy_drink", 1],
+      "time": 60,
+      "tags": ["consumable", "energy"],
+      "description": "Create an energy drink using beans and cloth as a filter."
+    },
+    {
+      "id": "improvised_medkit",
+      "name": "Improvised Medkit",
+      "station": "craft_bench",
+      "inputs": [["bandage", 5], ["adhesive", 2], ["cloth", 1]],
+      "output": ["medkit", 1],
+      "time": 180,
+      "tags": ["medical", "advanced"],
+      "description": "Assemble a medkit from bandages and other medical supplies."
+    },
+    {
+      "id": "rope",
+      "name": "Rope",
+      "inputs": [["fiber", 4]],
+      "output": ["rope", 1],
+      "time": 45,
+      "tags": ["utility", "basic"],
+      "description": "Weave plant fibers into useful rope."
+    },
+    {
+      "id": "cloth_from_fiber",
+      "name": "Cloth from Fiber",
+      "inputs": [["fiber", 3]],
+      "output": ["cloth", 2],
+      "time": 90,
+      "tags": ["textile", "basic"],
+      "description": "Weave plant fibers into cloth."
+    },
+    {
+      "id": "wooden_spear",
+      "name": "Wooden Spear",
+      "station": "workbench",
+      "inputs": [["wood", 2], ["fiber", 1], ["rock", 1]],
+      "output": ["wooden_spear", 1],
+      "time": 150,
+      "tags": ["weapon", "primitive"],
+      "description": "Craft a simple wooden spear for hunting and defense."
+    },
+    {
+      "id": "antidote",
+      "name": "Antidote",
+      "station": "craft_bench",
+      "inputs": [["fiber", 3], ["wood", 1], ["medkit", 1]],
+      "output": ["antidote", 2],
+      "time": 240,
+      "tags": ["medical", "rare", "advanced"],
+      "description": "Brew a potent antidote using natural and medical ingredients."
+    },
+    {
+      "id": "reinforced_bandage",
+      "name": "Reinforced Bandage",
+      "station": "craft_bench",
+      "inputs": [["bandage", 2], ["adhesive", 1]],
+      "output": ["reinforced_bandage", 1],
+      "time": 60,
+      "tags": ["medical", "advanced"],
+      "description": "Create enhanced bandages with better healing properties."
+    },
+    {
+      "id": "scrap_blade",
+      "name": "Scrap Blade",
+      "station": "workbench",
+      "inputs": [["metal_scrap", 3], ["cloth", 1], ["adhesive", 1]],
+      "output": ["scrap_blade", 1],
+      "time": 200,
+      "tags": ["weapon", "improvised"],
+      "description": "Fashion a crude but effective blade from scrap materials."
+    }
+  ]
+}

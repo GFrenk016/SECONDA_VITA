@@ -579,3 +579,498 @@ def _advance_time_and_weather(state: GameState):
             state.climate = "umido"
         state.weather = new_weather
 
+
+# --- New Inventory and Stats Commands ---
+
+def inventory(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """Display player inventory with weight and equipment status."""
+    from ..inventory import Inventory
+    from ..items import get_item_registry
+    from ..stats import PlayerStats
+    
+    lines = []
+    
+    # Initialize systems if not present
+    player_inventory = _get_player_inventory(state)
+    player_stats = _get_player_stats(state)
+    
+    # Get inventory items
+    items = player_inventory.list_items()
+    
+    if not items:
+        lines.append("Inventario vuoto.")
+        return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+    
+    # Header
+    total_weight = player_inventory.get_total_weight()
+    carry_capacity = player_stats.get_carry_capacity()
+    weight_pct = (total_weight / carry_capacity) * 100 if carry_capacity > 0 else 0
+    
+    lines.append(f"=== Inventario ===")
+    lines.append(f"Peso: {total_weight:.1f}/{carry_capacity:.1f}kg ({weight_pct:.1f}%)")
+    lines.append("")
+    
+    # Group items by type
+    equipped_items = []
+    consumables = []
+    weapons = []
+    armor = []
+    materials = []
+    quest_items = []
+    other_items = []
+    
+    item_registry = get_item_registry()
+    
+    for item_id, quantity, is_equipped in items:
+        item = item_registry.get_item(item_id)
+        item_name = item.name if item else item_id
+        
+        item_line = f"  {item_name}"
+        if quantity > 1:
+            item_line += f" x{quantity}"
+        if is_equipped:
+            item_line += " [EQUIPAGGIATO]"
+            equipped_items.append(item_line)
+        elif item and item.type == 'consumable':
+            consumables.append(item_line)
+        elif item and item.type == 'weapon':
+            weapons.append(item_line)
+        elif item and item.type == 'armor':
+            armor.append(item_line)
+        elif item and item.type == 'material':
+            materials.append(item_line)
+        elif item and item.type == 'quest':
+            quest_items.append(item_line)
+        else:
+            other_items.append(item_line)
+    
+    # Display items by category
+    if equipped_items:
+        lines.append("Equipaggiamento:")
+        lines.extend(equipped_items)
+        lines.append("")
+    
+    if consumables:
+        lines.append("Consumabili:")
+        lines.extend(consumables)
+        lines.append("")
+    
+    if weapons:
+        lines.append("Armi:")
+        lines.extend(weapons)
+        lines.append("")
+    
+    if armor:
+        lines.append("Armature:")
+        lines.extend(armor)
+        lines.append("")
+    
+    if quest_items:
+        lines.append("Oggetti Missione:")
+        lines.extend(quest_items)
+        lines.append("")
+    
+    if materials:
+        lines.append("Materiali:")
+        lines.extend(materials)
+        lines.append("")
+    
+    if other_items:
+        lines.append("Altro:")
+        lines.extend(other_items)
+    
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+
+
+def stats(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """Display player statistics."""
+    lines = []
+    
+    # Initialize stats if not present
+    player_stats = _get_player_stats(state)
+    
+    lines.append("=== Statistiche Giocatore ===")
+    lines.append("")
+    
+    # Health, Energy, Morale with bars
+    health_bar = _create_progress_bar(player_stats.health, player_stats.max_health)
+    energy_bar = _create_progress_bar(player_stats.energy, player_stats.max_energy)
+    morale_bar = _create_progress_bar(player_stats.morale, player_stats.max_morale)
+    
+    lines.append(f"Salute:  {health_bar} {player_stats.health}/{player_stats.max_health}")
+    lines.append(f"Energia: {energy_bar} {player_stats.energy}/{player_stats.max_energy}")
+    lines.append(f"Morale:  {morale_bar} {player_stats.morale}/{player_stats.max_morale}")
+    lines.append("")
+    
+    # Base attributes
+    lines.append("Attributi:")
+    lines.append(f"  Forza:      {player_stats.get_modified_stat('strength'):.0f}")
+    lines.append(f"  Agilità:    {player_stats.get_modified_stat('agility'):.0f}")
+    lines.append(f"  Intelletto: {player_stats.get_modified_stat('intellect'):.0f}")
+    lines.append(f"  Percezione: {player_stats.get_modified_stat('perception'):.0f}")
+    lines.append(f"  Carisma:    {player_stats.get_modified_stat('charisma'):.0f}")
+    lines.append(f"  Fortuna:    {player_stats.get_modified_stat('luck'):.0f}")
+    lines.append("")
+    
+    # Derived stats
+    lines.append("Statistiche Derivate:")
+    lines.append(f"  Capacità Carico: {player_stats.get_carry_capacity():.1f}kg")
+    lines.append(f"  Chance Critico:  {player_stats.get_crit_chance() * 100:.1f}%")
+    lines.append(f"  Evasione:        {player_stats.get_evasion() * 100:.1f}%")
+    lines.append(f"  Raggio Visione:  {player_stats.get_vision_range()}")
+    lines.append("")
+    
+    # Resistances
+    lines.append("Resistenze:")
+    lines.append(f"  Sanguinamento: {player_stats.bleed_resistance}%")
+    lines.append(f"  Veleno:        {player_stats.poison_resistance}%")
+    lines.append(f"  Fuoco:         {player_stats.fire_resistance}%")
+    lines.append(f"  Freddo:        {player_stats.cold_resistance}%")
+    
+    # Active buffs
+    active_buffs = player_stats.get_active_buffs()
+    if active_buffs:
+        lines.append("")
+        lines.append("Effetti Attivi:")
+        for buff in active_buffs:
+            if buff['is_permanent']:
+                lines.append(f"  {buff['stat']}: {buff['amount']:+.1f} (permanente)")
+            else:
+                lines.append(f"  {buff['stat']}: {buff['amount']:+.1f} ({buff['remaining_ticks']} tick rimanenti)")
+    
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+
+
+def use_item(state: GameState, registry: ContentRegistry, item_name: str) -> Dict[str, Any]:
+    """Use an item from inventory."""
+    from ..stats import apply_item_effects
+    from ..items import get_item_registry
+    
+    lines = []
+    
+    # Initialize systems
+    player_inventory = _get_player_inventory(state)
+    player_stats = _get_player_stats(state)
+    
+    # Find item by name or ID
+    item_registry = get_item_registry()
+    matching_items = item_registry.find_items_by_name(item_name, partial=True)
+    
+    if not matching_items:
+        lines.append(f"Oggetto '{item_name}' non trovato.")
+        return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+    
+    item = matching_items[0]  # Use first match
+    
+    # Try to use the item
+    success, message, effects = player_inventory.use_item(item.id)
+    
+    if not success:
+        lines.append(message)
+        return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+    
+    lines.append(message)
+    
+    # Apply effects
+    if effects:
+        effect_messages = apply_item_effects(player_stats, effects)
+        lines.extend(effect_messages)
+    
+    # Update state
+    _save_player_inventory(state, player_inventory)
+    _save_player_stats(state, player_stats)
+    
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {"used_item": item.id}}
+
+
+def equip_item(state: GameState, registry: ContentRegistry, item_name: str) -> Dict[str, Any]:
+    """Equip an item from inventory."""
+    from ..items import get_item_registry
+    
+    lines = []
+    
+    # Initialize systems
+    player_inventory = _get_player_inventory(state)
+    
+    # Find item by name or ID
+    item_registry = get_item_registry()
+    matching_items = item_registry.find_items_by_name(item_name, partial=True)
+    
+    if not matching_items:
+        lines.append(f"Oggetto '{item_name}' non trovato.")
+        return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+    
+    item = matching_items[0]
+    
+    # Try to equip
+    success, message, old_item_id = player_inventory.equip(item.id)
+    lines.append(message)
+    
+    if success and old_item_id:
+        old_item = item_registry.get_item(old_item_id)
+        old_name = old_item.name if old_item else old_item_id
+        lines.append(f"Precedentemente equipaggiato {old_name} riposto nell'inventario.")
+    
+    # Update state
+    _save_player_inventory(state, player_inventory)
+    
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {"equipped_item": item.id if success else None}}
+
+
+def unequip_item(state: GameState, registry: ContentRegistry, slot_or_item: str) -> Dict[str, Any]:
+    """Unequip an item by slot or item name."""
+    lines = []
+    
+    # Initialize systems
+    player_inventory = _get_player_inventory(state)
+    
+    # Try to unequip
+    success, message, item_id = player_inventory.unequip(slot_or_item)
+    lines.append(message)
+    
+    # Update state
+    _save_player_inventory(state, player_inventory)
+    
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {"unequipped_item": item_id if success else None}}
+
+
+def drop_item(state: GameState, registry: ContentRegistry, item_name: str, quantity: int = 1) -> Dict[str, Any]:
+    """Drop item from inventory."""
+    from ..items import get_item_registry
+    
+    lines = []
+    
+    # Initialize systems
+    player_inventory = _get_player_inventory(state)
+    
+    # Find item by name or ID
+    item_registry = get_item_registry()
+    matching_items = item_registry.find_items_by_name(item_name, partial=True)
+    
+    if not matching_items:
+        lines.append(f"Oggetto '{item_name}' non trovato.")
+        return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+    
+    item = matching_items[0]
+    
+    # Try to drop
+    success, message = player_inventory.drop_item(item.id, quantity)
+    lines.append(message)
+    
+    # TODO: Add dropped item to current location's ground items
+    
+    # Update state
+    _save_player_inventory(state, player_inventory)
+    
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {"dropped_item": item.id if success else None}}
+
+
+def examine_item(state: GameState, registry: ContentRegistry, item_name: str) -> Dict[str, Any]:
+    """Examine an item in detail."""
+    from ..items import get_item_registry
+    
+    lines = []
+    
+    # Find item by name or ID
+    item_registry = get_item_registry()
+    matching_items = item_registry.find_items_by_name(item_name, partial=True)
+    
+    if not matching_items:
+        lines.append(f"Oggetto '{item_name}' non trovato.")
+        return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+    
+    item = matching_items[0]
+    
+    lines.append(f"=== {item.name} ===")
+    lines.append(f"Tipo: {item.type.title()}")
+    lines.append(f"Peso: {item.weight}kg")
+    
+    if item.stack_max > 1:
+        lines.append(f"Stack massimo: {item.stack_max}")
+    
+    if item.value > 0:
+        lines.append(f"Valore: {item.value}")
+    
+    if item.durability:
+        lines.append(f"Durabilità: {item.durability}")
+    
+    if item.equip_slot:
+        lines.append(f"Slot equipaggiamento: {item.equip_slot}")
+    
+    if item.tags:
+        lines.append(f"Tag: {', '.join(item.tags)}")
+    
+    if item.description:
+        lines.append("")
+        lines.append(item.description)
+    
+    if item.effects:
+        lines.append("")
+        lines.append("Effetti:")
+        for effect in item.effects:
+            lines.append(f"  {_format_effect(effect)}")
+    
+    return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+
+
+# --- Helper Functions ---
+
+def _get_player_inventory(state: GameState):
+    """Get or initialize player inventory."""
+    from ..inventory import Inventory
+    from ..items import get_item_registry
+    
+    item_registry = get_item_registry()
+    inventory = Inventory(item_registry)
+    
+    if state.player_inventory:
+        # Load from state
+        inventory_data = state.player_inventory
+        
+        # Restore stacks
+        for stack_data in inventory_data.get('stacks', []):
+            inventory.add(stack_data['item_id'], stack_data['quantity'])
+        
+        # Restore equipment
+        equipment_data = inventory_data.get('equipment', {})
+        for slot, item_id in equipment_data.items():
+            if item_id:
+                setattr(inventory.equipment, slot, item_id)
+    else:
+        # Initialize with default items
+        inventory.add("medkit", 1)
+        inventory.add("canned_beans", 2)
+        inventory.add("cloth", 3)
+        inventory.add("hunting_knife", 1)  # Add for testing
+    
+    return inventory
+
+
+def _save_player_inventory(state: GameState, inventory):
+    """Save player inventory to state."""
+    state.player_inventory = {
+        'stacks': [{'item_id': stack.item_id, 'quantity': stack.quantity} for stack in inventory.stacks],
+        'equipment': {
+            'main_hand': inventory.equipment.main_hand,
+            'off_hand': inventory.equipment.off_hand,
+            'head': inventory.equipment.head,
+            'body': inventory.equipment.body,
+            'legs': inventory.equipment.legs,
+            'feet': inventory.equipment.feet,
+            'accessory1': inventory.equipment.accessory1,
+            'accessory2': inventory.equipment.accessory2,
+        }
+    }
+
+
+def _get_player_stats(state: GameState):
+    """Get or initialize player stats."""
+    from ..stats import PlayerStats, StatModifier
+    
+    if state.player_stats:
+        # Load from state
+        stats_data = state.player_stats
+        stats = PlayerStats()
+        
+        # Load basic stats
+        for field in ['health', 'max_health', 'energy', 'max_energy', 'morale', 'max_morale',
+                     'strength', 'agility', 'intellect', 'perception', 'charisma', 'luck',
+                     'bleed_resistance', 'poison_resistance', 'fire_resistance', 'cold_resistance',
+                     'current_tick']:
+            if field in stats_data:
+                setattr(stats, field, stats_data[field])
+        
+        # Load modifiers
+        modifiers_data = stats_data.get('modifiers', [])
+        stats.modifiers = []
+        for mod_data in modifiers_data:
+            modifier = StatModifier(
+                stat=mod_data['stat'],
+                amount=mod_data['amount'],
+                duration_ticks=mod_data['duration_ticks'],
+                applied_tick=mod_data['applied_tick'],
+                source=mod_data.get('source', 'unknown')
+            )
+            stats.modifiers.append(modifier)
+        
+        return stats
+    else:
+        # Initialize with defaults
+        return PlayerStats()
+
+
+def _save_player_stats(state: GameState, stats):
+    """Save player stats to state."""
+    state.player_stats = {
+        'health': stats.health,
+        'max_health': stats.max_health,
+        'energy': stats.energy,
+        'max_energy': stats.max_energy,
+        'morale': stats.morale,
+        'max_morale': stats.max_morale,
+        'strength': stats.strength,
+        'agility': stats.agility,
+        'intellect': stats.intellect,
+        'perception': stats.perception,
+        'charisma': stats.charisma,
+        'luck': stats.luck,
+        'bleed_resistance': stats.bleed_resistance,
+        'poison_resistance': stats.poison_resistance,
+        'fire_resistance': stats.fire_resistance,
+        'cold_resistance': stats.cold_resistance,
+        'current_tick': stats.current_tick,
+        'modifiers': [
+            {
+                'stat': mod.stat,
+                'amount': mod.amount,
+                'duration_ticks': mod.duration_ticks,
+                'applied_tick': mod.applied_tick,
+                'source': mod.source
+            }
+            for mod in stats.modifiers
+        ]
+    }
+
+
+def _create_progress_bar(current: int, maximum: int, width: int = 10) -> str:
+    """Create a text progress bar."""
+    if maximum <= 0:
+        return "[" + "?" * width + "]"
+    
+    filled = int((current / maximum) * width)
+    empty = width - filled
+    return "[" + "█" * filled + "░" * empty + "]"
+
+
+def _format_effect(effect: Dict[str, Any]) -> str:
+    """Format an item effect for display."""
+    if 'heal' in effect:
+        return f"Cura {effect['heal']} HP"
+    elif 'restore' in effect:
+        restore = effect['restore']
+        if 'energy' in restore:
+            return f"Ripristina {restore['energy']} energia"
+    elif 'buff' in effect:
+        buff = effect['buff']
+        stat = buff.get('stat', 'unknown')
+        amount = buff.get('amount', 0)
+        duration = buff.get('duration_ticks', 0)
+        if duration > 0:
+            return f"{stat} {amount:+.1f} per {duration} tick"
+        else:
+            return f"{stat} {amount:+.1f} (permanente)"
+    elif 'damage_over_time' in effect or 'dot' in effect:
+        dot = effect.get('damage_over_time', effect.get('dot', {}))
+        damage_type = dot.get('type', 'poison')
+        amount = dot.get('amount', 1)
+        duration = dot.get('duration', 60)
+        return f"{amount} danno {damage_type} per {duration} tick"
+    elif 'resist' in effect:
+        resist = effect['resist']
+        resist_type = resist.get('type')
+        amount = resist.get('amount', 0)
+        duration = resist.get('duration', 300)
+        return f"+{amount} resistenza {resist_type} per {duration} tick"
+    
+    return str(effect)
+

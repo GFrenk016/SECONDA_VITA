@@ -5,7 +5,7 @@ persistence utilities (not yet implemented).
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional, Any
 
 @dataclass
 class GameState:
@@ -13,10 +13,24 @@ class GameState:
     current_macro: str
     current_micro: str
     flags: Dict[str, object] = field(default_factory=dict)
-    inventory: List[str] = field(default_factory=list)
+    inventory: List[str] = field(default_factory=list)  # Legacy inventory - kept for compatibility
     fired_events: Set[str] = field(default_factory=set)
     timeline: List[Dict[str, object]] = field(default_factory=list)
-    version: int = 1
+    version: int = 3  # Updated version for new inventory/stats system
+    
+    # New inventory and stats system
+    player_stats: Optional[Dict[str, Any]] = None  # Will be initialized as PlayerStats data
+    player_inventory: Optional[Dict[str, Any]] = None  # Will be initialized as Inventory data
+    player_equipment: Optional[Dict[str, Any]] = None  # Will be initialized as Equipment data
+    
+    # Container states (location -> container_id -> contents)
+    container_states: Dict[str, Dict[str, List[Dict[str, Any]]]] = field(default_factory=dict)
+    
+    # Resource node cooldowns (location -> node_id -> cooldown_end_tick)
+    resource_cooldowns: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    
+    # World element states
+    world_element_states: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     # Nuovi campi per profondità ambientale
     weather: str = "sereno"  # es: sereno, pioggia, nebbia
     climate: str = "temperato"  # es: temperato, caldo, freddo, umido

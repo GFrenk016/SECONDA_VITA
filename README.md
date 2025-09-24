@@ -24,6 +24,15 @@ Seconda Vita è un motore narrativo testuale ambientato in un bosco, con profond
 - `inspect <oggetto>` — ispeziona un oggetto/elemento presente nell'area
 - `quit` — esci dal gioco
 
+### Inventario e Statistiche
+- `inventory` / `inv` — mostra inventario con peso, categorie e oggetti equipaggiati
+- `stats` — mostra statistiche giocatore, attributi, resistenze e buff attivi
+- `use <oggetto>` — usa un oggetto consumabile dall'inventario
+- `equip <oggetto>` — equipaggia un oggetto dall'inventario
+- `unequip <slot|oggetto>` — rimuove oggetto equipaggiato
+- `drop <oggetto> [quantità]` — lascia cadere oggetti dall'inventario
+- `examine <oggetto>` — esamina oggetto in dettaglio (inventario o mondo)
+
 ### Combattimento (fase 2.1 – realtime ibrido)
 Nuovo modello realtime: niente più fase 'enemy'. Il tempo simulato scorre (derivato dal clock globale) e il nemico prepara attacchi a intervalli programmati. Quando un attacco sta per arrivare:
 1. Viene schedulato un "incoming attack" con `next_enemy_attack_total`.

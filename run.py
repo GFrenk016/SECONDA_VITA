@@ -10,7 +10,7 @@ Then type commands:
 from __future__ import annotations
 from game.bootstrap import load_world_and_state
 import difflib
-from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn
+from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
 from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
@@ -33,6 +33,14 @@ COMMAND_HELP = {
     'qte': {'usage': 'qte <tasto>', 'desc': 'Risponde a QTE attivo (offense/defense).'},
     'push': {'usage': 'push', 'desc': 'Spingi indietro il nemico, ritardando il prossimo attacco.'},
     'flee': {'usage': 'flee', 'desc': 'Tenta di fuggire; chance aumentata con distanza o nemico ferito.'},
+    # New inventory and stats commands
+    'inventory': {'usage': 'inventory | inv', 'desc': 'Mostra inventario con peso e oggetti equipaggiati.'},
+    'stats': {'usage': 'stats', 'desc': 'Mostra statistiche giocatore, resistenze e buff attivi.'},
+    'use': {'usage': 'use <oggetto>', 'desc': 'Usa un oggetto dall\'inventario (consumabili).'},
+    'equip': {'usage': 'equip <oggetto>', 'desc': 'Equipaggia un oggetto dall\'inventario.'},
+    'unequip': {'usage': 'unequip <slot|oggetto>', 'desc': 'Rimuove oggetto equipaggiato.'},
+    'drop': {'usage': 'drop <oggetto> [quantità]', 'desc': 'Lascia cadere oggetto dall\'inventario.'},
+    'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).'},
     'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.'},
     'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.'},
     'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.'},
@@ -51,6 +59,28 @@ def game_loop():
     registry, state = load_world_and_state()
     weapons, mobs = load_combat_content()
     inject_content(weapons, mobs)
+    
+    # Initialize inventory and stats systems
+    from engine.items import create_default_items, load_items_from_assets
+    from engine.loot import create_default_loot_tables, load_loot_tables_from_assets
+    from engine.crafting import create_default_recipes, load_recipes_from_assets
+    from engine.effects import create_default_effects
+    
+    # Load default content
+    create_default_items()
+    create_default_loot_tables()
+    create_default_recipes()
+    create_default_effects()
+    
+    # Try to load from assets
+    try:
+        items_loaded = load_items_from_assets()
+        loot_loaded = load_loot_tables_from_assets()
+        recipes_loaded = load_recipes_from_assets()
+        print(f"-- Caricati {items_loaded} oggetti, {loot_loaded} tabelle loot, {recipes_loaded} ricette --")
+    except Exception as e:
+        print(f"Warning: Failed to load some assets: {e}")
+    
     # Abilita QTE complessi in base alla config
     try:
         set_complex_qte(DEFAULT_COMPLEX_QTE_ENABLED)
@@ -172,7 +202,15 @@ def game_loop():
                 if not target:
                     print("Uso: examine <oggetto>")
                     continue
-                res = examine(state, registry, target)
+                # Try new item examine first, then fall back to old examine
+                try:
+                    res = examine_item(state, registry, target)
+                    # If item not found, try the old examine command
+                    if res["lines"] and "non trovato" in res["lines"][0]:
+                        res = examine(state, registry, target)
+                except Exception:
+                    # Fall back to old examine
+                    res = examine(state, registry, target)
             elif cmd.startswith("search"):
                 parts = cmd.split(maxsplit=1)
                 if len(parts) == 1:
@@ -236,6 +274,69 @@ def game_loop():
                 res = combat_action(state, registry, 'push')
             elif cmd == "flee":
                 res = combat_action(state, registry, 'flee')
+            # New inventory and stats commands
+            elif cmd in {"inventory", "inv"}:
+                res = inventory(state, registry)
+            elif cmd == "stats":
+                res = stats(state, registry)
+            elif cmd.startswith("use"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: use <oggetto>")
+                    continue
+                item_name = parts[1].strip()
+                if not item_name:
+                    print("Uso: use <oggetto>")
+                    continue
+                res = use_item(state, registry, item_name)
+            elif cmd.startswith("equip"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: equip <oggetto>")
+                    continue
+                item_name = parts[1].strip()
+                if not item_name:
+                    print("Uso: equip <oggetto>")
+                    continue
+                res = equip_item(state, registry, item_name)
+            elif cmd.startswith("unequip"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: unequip <slot|oggetto>")
+                    continue
+                slot_or_item = parts[1].strip()
+                if not slot_or_item:
+                    print("Uso: unequip <slot|oggetto>")
+                    continue
+                res = unequip_item(state, registry, slot_or_item)
+            elif cmd.startswith("drop"):
+                parts = cmd.split()
+                if len(parts) == 1:
+                    print("Uso: drop <oggetto> [quantità]")
+                    continue
+                item_name = parts[1]
+                quantity = 1
+                if len(parts) >= 3 and parts[2].isdigit():
+                    quantity = int(parts[2])
+                res = drop_item(state, registry, item_name, quantity)
+            elif cmd.startswith("examine"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: examine <oggetto>")
+                    continue
+                item_name = parts[1].strip()
+                if not item_name:
+                    print("Uso: examine <oggetto>")
+                    continue
+                # Try new item examine first, then fall back to old examine
+                try:
+                    res = examine_item(state, registry, item_name)
+                    # If item not found, try the old examine command
+                    if res["lines"] and "non trovato" in res["lines"][0]:
+                        res = examine(state, registry, item_name)
+                except Exception:
+                    # Fall back to old examine
+                    res = examine(state, registry, item_name)
             else:
                 close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
                 if close:

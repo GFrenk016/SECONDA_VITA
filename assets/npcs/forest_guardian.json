@@ -1,0 +1,51 @@
+{
+  "id": "forest_guardian",
+  "name": "Guardiano del Bosco",
+  "description": "Un anziano dalla lunga barba intrecciata di foglie e muschio. I suoi occhi verdi sembrano riflettere la saggezza degli alberi secolari.",
+  "current_macro": "fronte_bosco",
+  "current_micro": "limite_sentiero",
+  "home_location": "limite_sentiero",
+  "personality": {
+    "traits": ["saggio", "misterioso", "protettivo"],
+    "speech_patterns": ["parla lentamente", "usa metafore naturali", "cita antichi proverbi"],
+    "quirks": ["tocca spesso la corteccia degli alberi", "sussurra ai venti"]
+  },
+  "background": "Custode del Bosco Antico da generazioni, conosce ogni sentiero, ogni segreto nascosto tra le fronde. Ha visto molti viaggiatori attraversare questi luoghi.",
+  "goals": [
+    "Proteggere l'equilibrio del bosco",
+    "Guidare i viaggiatori meritevoli",
+    "Preservare antiche conoscenze"
+  ],
+  "relationship": "stranger",
+  "current_state": "neutral",
+  "mood": 0.2,
+  "conversation_topics": [
+    "bosco antico",
+    "sentieri",
+    "creature del bosco",
+    "antiche leggende",
+    "equilibrio naturale"
+  ],
+  "special_knowledge": {
+    "sentieri segreti": "Conosco passaggi che pochi hanno mai visto. Ma si rivelano solo a chi rispetta la natura.",
+    "creature misteriose": "Nel bosco vivono esseri che preferiscono rimanere nascosti. Rispetta il loro spazio e ti rispetteranno.",
+    "piante curative": "Molte piante qui hanno proprietà speciali. Il muschio della quercia cava può lenire ferite profonde."
+  },
+  "daily_schedule": {
+    "06:00": "meditazione",
+    "09:00": "pattuglia",
+    "12:00": "riposo",
+    "15:00": "raccolta",
+    "18:00": "guardia",
+    "22:00": "sleep"
+  },
+  "movement_pattern": [
+    "limite_sentiero",
+    "radura_muschiosa",
+    "quercia_cava"
+  ],
+  "flags_set": ["met_forest_guardian", "learned_forest_lore"],
+  "flags_required": [],
+  "quest_giver": true,
+  "merchant": false
+}

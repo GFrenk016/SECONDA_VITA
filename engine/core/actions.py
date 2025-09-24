@@ -1074,3 +1074,116 @@ def _format_effect(effect: Dict[str, Any]) -> str:
     
     return str(effect)
 
+
+# --- NPC Dialogue Actions ---
+
+def talk(state: GameState, registry: ContentRegistry, npc_name: str = None) -> Dict[str, Any]:
+    """Start or list available NPCs for conversation."""
+    # Check if NPC registry is available
+    if not hasattr(registry, 'npc_registry') or registry.npc_registry is None:
+        return {"lines": ["Non ci sono persone con cui parlare qui."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    current_location = state.location_key()
+    parts = current_location.split(":")
+    if len(parts) != 2:
+        return {"lines": ["Errore nella posizione corrente."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    macro_id, micro_id = parts
+    talkable_npcs = registry.npc_registry.get_talkable_npcs(macro_id, micro_id)
+    
+    if not talkable_npcs:
+        return {"lines": ["Non ci sono persone con cui parlare qui."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    if npc_name is None:
+        # List available NPCs
+        lines = ["Persone presenti:"]
+        for npc in talkable_npcs:
+            state_desc = ""
+            if npc.current_state.value != "neutral":
+                state_desc = f" ({npc.current_state.value})"
+            lines.append(f"- {npc.name}{state_desc}")
+        lines.append("Usa 'talk <nome>' per iniziare una conversazione.")
+        return {"lines": lines, "hints": [], "events_triggered": [], "changes": {}}
+    
+    # Find specific NPC
+    target_npc = None
+    for npc in talkable_npcs:
+        if npc.name.lower() == npc_name.lower() or npc.id.lower() == npc_name.lower():
+            target_npc = npc
+            break
+    
+    if target_npc is None:
+        return {"lines": [f"Non riesco a trovare {npc_name} qui."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    # Start conversation
+    from .npc.dialogue import AIDialogueEngine
+    from .npc.models import DialogueContext
+    
+    dialogue_engine = AIDialogueEngine()
+    context = DialogueContext(
+        npc_id=target_npc.id,
+        player_name="Giocatore",
+        current_location=current_location,
+        game_time=str(state.time_minutes),
+        weather=state.weather,
+        recent_events=[],
+        relationship_status=target_npc.relationship,
+        npc_mood=target_npc.mood,
+        conversation_history=[]
+    )
+    
+    result = dialogue_engine.start_conversation(target_npc, context)
+    
+    # Store active conversation in state
+    state.active_conversation = {
+        'npc_id': target_npc.id,
+        'context': context,
+        'engine': dialogue_engine
+    }
+    
+    return {
+        "lines": result['lines'],
+        "hints": result['hints'],
+        "events_triggered": [],
+        "changes": {"started_conversation": target_npc.id}
+    }
+
+
+def say(state: GameState, registry: ContentRegistry, message: str) -> Dict[str, Any]:
+    """Continue conversation with active NPC."""
+    if not hasattr(state, 'active_conversation') or state.active_conversation is None:
+        return {"lines": ["Non stai parlando con nessuno. Usa 'talk <nome>' per iniziare una conversazione."], 
+                "hints": [], "events_triggered": [], "changes": {}}
+    
+    if not hasattr(registry, 'npc_registry') or registry.npc_registry is None:
+        return {"lines": ["Sistema NPC non disponibile."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    conversation = state.active_conversation
+    npc = registry.npc_registry.get_npc(conversation['npc_id'])
+    
+    if npc is None:
+        state.active_conversation = None
+        return {"lines": ["L'NPC non è più disponibile."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    dialogue_engine = conversation['engine']
+    context = conversation['context']
+    
+    # Update context with current game state
+    context.game_time = str(state.time_minutes)
+    context.weather = state.weather
+    
+    result = dialogue_engine.process_dialogue_turn(npc, message, context)
+    
+    # End conversation if needed
+    if not result['conversation_active']:
+        state.active_conversation = None
+        end_result = dialogue_engine.end_conversation(npc, context)
+        result['lines'].extend(end_result['lines'])
+    
+    return {
+        "lines": result['lines'],
+        "hints": result['hints'],
+        "events_triggered": [],
+        "changes": {"dialogue_turn": message}
+    }
+

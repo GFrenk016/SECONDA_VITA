@@ -1,0 +1,50 @@
+{
+  "id": "wandering_merchant",
+  "name": "Mercante Errante",
+  "description": "Un uomo di mezza età con un pesante zaino pieno di oggetti curiosi. Il suo sorriso è amichevole ma i suoi occhi sono sempre vigili.",
+  "current_macro": "fronte_bosco",
+  "current_micro": "radura_muschiosa",
+  "home_location": "radura_muschiosa",
+  "personality": {
+    "traits": ["astuto", "amichevole", "opportunista"],
+    "speech_patterns": ["parla velocemente", "fa spesso complimenti", "negozia sempre"],
+    "quirks": ["controlla spesso il suo zaino", "sorride troppo spesso"]
+  },
+  "background": "Viaggia di villaggio in villaggio vendendo oggetti rari e storie ancora più rare. Conosce molte persone e molti segreti.",
+  "goals": [
+    "Fare buoni affari",
+    "Raccogliere informazioni preziose",
+    "Trovare oggetti rari da vendere"
+  ],
+  "relationship": "stranger",
+  "current_state": "neutral",
+  "mood": 0.4,
+  "conversation_topics": [
+    "commercio",
+    "viaggi",
+    "oggetti rari",
+    "notizie dai villaggi",
+    "prezzi"
+  ],
+  "special_knowledge": {
+    "oggetti magici": "Ho visto cose che non crederesti... cristalli che brillano di luce propria, amuleti che proteggono dal male.",
+    "villaggi vicini": "Conosco tutti i sentieri che portano ai villaggi. Per il giusto prezzo, posso disegnare mappe accurate.",
+    "pericoli della zona": "Ci sono zone da evitare, creature pericolose. Le informazioni costano, ma la vita non ha prezzo."
+  },
+  "daily_schedule": {
+    "08:00": "preparazione merci",
+    "10:00": "vendita",
+    "14:00": "ricerca",
+    "16:00": "vendita",
+    "20:00": "riposo"
+  },
+  "movement_pattern": [
+    "radura_muschiosa",
+    "limite_sentiero",
+    "quercia_cava"
+  ],
+  "flags_set": ["met_merchant", "trading_available"],
+  "flags_required": [],
+  "quest_giver": false,
+  "merchant": true
+}

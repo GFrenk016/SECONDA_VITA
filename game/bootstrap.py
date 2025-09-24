@@ -5,6 +5,8 @@ from pathlib import Path
 from engine.core.world import build_world_from_dict, validate_world
 from engine.core.registry import ContentRegistry
 from engine.core.state import GameState
+from engine.core.npc.loader import load_npcs_from_assets
+from engine.core.npc.registry import NPCRegistry
 import time
 from config import get_time_scale
 
@@ -36,6 +38,19 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     # Attacco i testi al registry (semplice, futuro: classe dedicata)
     registry.strings = strings_data
     registry.inspectables = inspectables_data  # type: ignore[attr-defined]
+    
+    # Load and register NPCs
+    try:
+        npcs = load_npcs_from_assets()
+        if npcs:
+            npc_registry = NPCRegistry()
+            npc_registry.register_npcs(npcs)
+            registry.npc_registry = npc_registry
+            print(f"-- Caricati {len(npcs)} NPC --")
+    except Exception as e:
+        print(f"Warning: Failed to load NPCs: {e}")
+        registry.npc_registry = None
+    
     # Start position: first macro + first micro in definition order.
     first_macro = next(iter(world.macro_rooms.values()))
     first_micro = next(iter(first_macro.micro_rooms.values()))
@@ -75,5 +90,12 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     )
     # Calcola i minuti correnti immediatamente (real_start_ts = now)
     now = time.time()
-    state.recompute_from_real(now)
+    total_minutes = state.recompute_from_real(now)
+    
+    # Update NPC states if available
+    if registry.npc_registry:
+        registry.npc_registry.update_npc_states(total_minutes)
+        # Store reference for ongoing updates
+        state._npc_registry_ref = registry.npc_registry
+    
     return registry, state

@@ -26,6 +26,9 @@ class GameState:
     # Container states (location -> container_id -> contents)
     container_states: Dict[str, Dict[str, List[Dict[str, Any]]]] = field(default_factory=dict)
     
+    # NPC conversation state
+    active_conversation: Optional[Dict[str, Any]] = None
+    
     # Resource node cooldowns (location -> node_id -> cooldown_end_tick)
     resource_cooldowns: Dict[str, Dict[str, int]] = field(default_factory=dict)
     
@@ -94,6 +97,11 @@ class GameState:
         self.day_count = total_minutes // (24 * 60)
         self.time_minutes = total_minutes % (24 * 60)
         self._recompute_daytime()
+        
+        # Update NPC states if available
+        if hasattr(self, '_npc_registry_ref') and self._npc_registry_ref:
+            self._npc_registry_ref.update_npc_states(total_minutes)
+        
         # Restituisce anche il totale minuti per uso esterno se necessario
         return total_minutes
 

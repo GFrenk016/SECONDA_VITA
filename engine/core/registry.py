@@ -17,6 +17,8 @@ class ContentRegistry:
                 self.micro_index[micro.id] = micro
         # Dizionario testi (iniettato da bootstrap)
         self.strings: dict = {}
+        # NPC registry (iniettato da bootstrap se disponibile)
+        self.npc_registry = None
 
     def get_micro(self, micro_id: str) -> Optional[MicroRoom]:
         return self.micro_index.get(micro_id)

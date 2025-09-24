@@ -271,3 +271,28 @@ Prossimi ampliamenti test suggeriti:
 
 ## Licenza
 Da definire (consigliato: MIT o Apache 2.0).
+
+## Dialoghi NPC con Ollama (opzionale)
+
+Puoi abilitare dialoghi generati da AI tramite Ollama in locale. Per default è disabilitato e il gioco usa risposte predefinite.
+
+1) Installazione (Windows):
+  - Installa Ollama dal sito ufficiale e avvialo (porta predefinita 11434).
+  - Scarica un modello, ad es. `llama3.2:3b`:
+    - Esegui: `ollama pull llama3.2:3b`
+
+2) Variabili d’ambiente (facoltative):
+  - `SV_OLLAMA_ENABLED=1` per abilitare Ollama.
+  - `SV_OLLAMA_BASE_URL=http://localhost:11434` per cambiare host/porta.
+  - `SV_OLLAMA_MODEL=llama3.2:3b` per cambiare modello.
+  - `SV_OLLAMA_TIMEOUT=10` timeout richieste (secondi).
+  - `SV_OLLAMA_TEMPERATURE=0.7` creatività.
+  - `SV_OLLAMA_MAX_TOKENS=150` lunghezza massima risposta.
+
+3) Esecuzione:
+  - Assicurati che Ollama sia in esecuzione.
+  - Avvia il gioco. Alla prima conversazione vedrai un messaggio:
+    - `-- Ollama AI disponibile per dialoghi --` se raggiungibile.
+    - `-- Ollama abilitato ma non raggiungibile, uso fallback --` in caso contrario.
+
+Nota: se non vuoi installare `requests`, lascia disabilitato Ollama (`SV_OLLAMA_ENABLED=0`) e il gioco userà i fallback statici.

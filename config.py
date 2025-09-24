@@ -108,4 +108,40 @@ __all__ = [
     "INACTIVITY_ATTACK_SECONDS", "MIN_ATTACK_ALL_COOLDOWN_MINUTES",
     # CLI
     "CLI_TICK_INTERVAL_SECONDS",
+    # Ollama
+    "get_ollama_enabled", "get_ollama_base_url", "get_ollama_model",
+    "get_ollama_timeout", "get_ollama_temperature", "get_ollama_max_tokens",
 ]
+
+
+# ---------------- Ollama AI (Dialoghi NPC) ----------------
+
+def get_ollama_enabled() -> bool:
+    """Abilita l'integrazione con Ollama (default: False). Var: SV_OLLAMA_ENABLED."""
+    return _get_bool_env("SV_OLLAMA_ENABLED", False)
+
+
+def get_ollama_base_url() -> str:
+    """Base URL del server Ollama. Var: SV_OLLAMA_BASE_URL (default http://localhost:11434)."""
+    return os.getenv("SV_OLLAMA_BASE_URL", "http://localhost:11434").strip()
+
+
+def get_ollama_model() -> str:
+    """Nome modello Ollama da usare (es. 'llama3.2:3b'). Var: SV_OLLAMA_MODEL."""
+    return os.getenv("SV_OLLAMA_MODEL", "llama3.2:3b").strip()
+
+
+def get_ollama_timeout() -> float:
+    """Timeout richieste HTTP in secondi. Var: SV_OLLAMA_TIMEOUT (default 10.0)."""
+    return _get_float_env("SV_OLLAMA_TIMEOUT", 10.0, minval=1.0)
+
+
+def get_ollama_temperature() -> float:
+    """Temperatura sampling modello. Var: SV_OLLAMA_TEMPERATURE (default 0.7)."""
+    val = _get_float_env("SV_OLLAMA_TEMPERATURE", 0.7, minval=0.0)
+    return max(0.0, min(2.0, val))
+
+
+def get_ollama_max_tokens() -> int:
+    """Max token output. Var: SV_OLLAMA_MAX_TOKENS (default 150)."""
+    return _get_int_env("SV_OLLAMA_MAX_TOKENS", 150, minval=16)

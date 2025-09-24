@@ -78,9 +78,16 @@ class NPCRegistry:
         # Check for exact hour matches or ranges
         activity = npc.daily_schedule.get(hour_key)
         if activity:
-            if activity == "sleep":
+            norm = str(activity).strip().lower()
+            # Map common Italian/English activity labels to states
+            sleeping_terms = {"sleep", "dormi", "sonno", "riposo notturno"}
+            busy_terms = {
+                "work", "lavoro", "vendita", "preparazione merci", "ricerca",
+                "guardia", "pattuglia", "raccolta", "meditazione"
+            }
+            if norm in sleeping_terms:
                 npc.current_state = NPCState.SLEEPING
-            elif activity == "work":
+            elif norm in busy_terms:
                 npc.current_state = NPCState.BUSY
             else:
                 npc.current_state = NPCState.NEUTRAL

@@ -8,13 +8,22 @@ import random
 import json
 from typing import Dict, List, Any, Optional
 from .models import NPC, DialogueContext, NPCRelation, NPCState
+from config import (
+    get_ollama_enabled,
+    get_ollama_base_url,
+    get_ollama_model,
+    get_ollama_timeout,
+    get_ollama_temperature,
+    get_ollama_max_tokens,
+)
 
 
 class OllamaClient:
     """Simple Ollama HTTP client for AI dialogue generation."""
     
-    def __init__(self, base_url: str = "http://localhost:11434"):
+    def __init__(self, base_url: str, timeout: float):
         self.base_url = base_url
+        self.timeout = timeout
         self.available = False
         self._check_availability()
     
@@ -22,12 +31,12 @@ class OllamaClient:
         """Check if Ollama is running and available."""
         try:
             import requests
-            response = requests.get(f"{self.base_url}/api/tags", timeout=2)
+            response = requests.get(f"{self.base_url}/api/tags", timeout=min(2, self.timeout))
             self.available = response.status_code == 200
         except Exception:
             self.available = False
     
-    def generate_response(self, prompt: str, model: str = "llama3.2:3b") -> Optional[str]:
+    def generate_response(self, prompt: str, model: str, temperature: float, max_tokens: int) -> Optional[str]:
         """Generate response using Ollama."""
         if not self.available:
             return None
@@ -39,15 +48,15 @@ class OllamaClient:
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "temperature": 0.7,
-                    "max_tokens": 150
+                    "temperature": float(temperature),
+                    "max_tokens": int(max_tokens),
                 }
             }
             
             response = requests.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                timeout=10
+                timeout=self.timeout
             )
             
             if response.status_code == 200:
@@ -63,14 +72,30 @@ class AIDialogueEngine:
     """AI-powered dialogue generation for NPCs."""
     
     def __init__(self):
-        self.ollama_client = OllamaClient()
-        self.ollama_available = self.ollama_client.available
+        # Read config
+        self._enabled = get_ollama_enabled()
+        self._base_url = get_ollama_base_url()
+        self._model = get_ollama_model()
+        self._timeout = get_ollama_timeout()
+        self._temperature = get_ollama_temperature()
+        self._max_tokens = get_ollama_max_tokens()
+
+        # Initialize client if enabled
+        self.ollama_client = None
+        self.ollama_available = False
+        if self._enabled:
+            try:
+                self.ollama_client = OllamaClient(self._base_url, self._timeout)
+                self.ollama_available = self.ollama_client.available
+            except Exception:
+                self.ollama_available = False
         self._fallback_responses = self._init_fallback_responses()
         
+        # Log lightweight, avoid noisy tests
         if self.ollama_available:
             print("-- Ollama AI disponibile per dialoghi --")
-        else:
-            print("-- Ollama non disponibile, uso risposte predefinite --")
+        elif self._enabled:
+            print("-- Ollama abilitato ma non raggiungibile, uso fallback --")
     
     def _init_fallback_responses(self) -> Dict[str, List[str]]:
         """Initialize fallback responses for when AI is not available."""
@@ -128,7 +153,12 @@ class AIDialogueEngine:
         prompt = self._build_ai_prompt(npc, player_input, context)
         
         try:
-            response = self.ollama_client.generate_response(prompt)
+            response = self.ollama_client.generate_response(
+                prompt,
+                model=self._model,
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+            )
             if response and len(response.strip()) > 0:
                 # Clean up and validate response
                 response = response.strip()
@@ -289,8 +319,11 @@ Rispondi come {npc.name} mantenendo il personaggio coerente. Rispondi in italian
     
     def start_conversation(self, npc: NPC, context: DialogueContext) -> Dict[str, Any]:
         """Start a conversation with an NPC."""
-        # Update last interaction time
-        npc.last_interaction = context.game_time if isinstance(context.game_time, int) else 0
+        # Update last interaction time (store as integer minutes when possible)
+        try:
+            npc.last_interaction = int(context.game_time)
+        except Exception:
+            npc.last_interaction = 0
         
         # Generate initial greeting
         greeting = self._generate_fallback_response(npc, "ciao", context)
@@ -323,7 +356,7 @@ Rispondi come {npc.name} mantenendo il personaggio coerente. Rispondi in italian
         if hasattr(npc, 'add_memory'):
             npc.add_memory(
                 event="conversation_ended",
-                timestamp=context.game_time if isinstance(context.game_time, int) else 0,
+                timestamp=int(context.game_time) if isinstance(context.game_time, (int, str)) and str(context.game_time).isdigit() else 0,
                 context={'location': context.current_location},
                 importance=2
             )

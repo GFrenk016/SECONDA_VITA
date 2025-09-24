@@ -40,6 +40,8 @@ COMMAND_HELP = {
     'qte': {'usage': 'qte <tasto>', 'desc': 'Risponde a QTE attivo (offense/defense).'},
     'push': {'usage': 'push', 'desc': 'Spingi indietro il nemico, ritardando il prossimo attacco.'},
     'flee': {'usage': 'flee', 'desc': 'Tenta di fuggire; chance aumentata con distanza o nemico ferito.'},
+    'reload': {'usage': 'reload', 'desc': 'Ricarica l\'arma da fuoco impugnata (se presente).'},
+    'throw': {'usage': 'throw [index]', 'desc': 'Lancia un\'arma da lancio verso un bersaglio (consuma 1 uso).'},
     # New inventory and stats commands
     'inventory': {'usage': 'inventory | inv', 'desc': 'Mostra inventario con peso e oggetti equipaggiati.'},
     'stats': {'usage': 'stats', 'desc': 'Mostra statistiche giocatore, resistenze e buff attivi.'},
@@ -283,6 +285,10 @@ def game_loop():
                 res = combat_action(state, registry, 'push')
             elif cmd == "flee":
                 res = combat_action(state, registry, 'flee')
+            elif cmd == "reload":
+                res = combat_action(state, registry, 'reload')
+            elif cmd.startswith("throw"):
+                res = combat_action(state, registry, cmd)
             # New inventory and stats commands
             elif cmd in {"inventory", "inv"}:
                 res = inventory(state, registry)

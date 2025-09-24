@@ -7,7 +7,7 @@ Scans assets/npcs/*.json and returns a dictionary of NPC objects.
 from __future__ import annotations
 import json
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .models import NPC, NPCState, NPCRelation
 
 # Follow existing pattern from content_loader.py

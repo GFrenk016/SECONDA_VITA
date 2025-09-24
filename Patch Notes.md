@@ -55,6 +55,24 @@ Varie
 Compatibilità
 - I test esistenti restano verdi; comportamento legacy preservato quando i campi nuovi non sono presenti.
 
+## 0.2.1 (2025-09-24)
+Focus: Sistema NPC con dialoghi, integrazione opzionale Ollama, miglioramenti qualità
+
+Novità
+- Sistema NPC data‑driven: loader `assets/npcs/*.json`, registry runtime (posizioni, schedule), comandi `talk`/`say`.
+- Dialoghi AI opzionali con Ollama (locale): attivabili via env; fallback automatico a risposte statiche se non disponibile.
+- Mapping schedule in italiano→stati NPC (busy/sleeping), mood tracking e memorie conversazioni.
+
+Configurazione
+- Nuove variabili in `config.py`:
+	- `SV_OLLAMA_ENABLED`, `SV_OLLAMA_BASE_URL`, `SV_OLLAMA_MODEL`, `SV_OLLAMA_TIMEOUT`, `SV_OLLAMA_TEMPERATURE`, `SV_OLLAMA_MAX_TOKENS`.
+
+Documentazione
+- README: sezione “Dialoghi NPC con Ollama (opzionale)” con istruzioni Windows e variabili d’ambiente.
+
+Compatibilità
+- Nessuna rottura: se Ollama è disabilitato o non raggiungibile, i dialoghi usano risposte predefinite.
+
 ## Alpha 0.2
 - Clock ora in realtime puro: 1 secondo reale = 1 minuto di gioco (mapping con offset e scala)
 - Aggiornamento meteo ora valutato ogni 30 minuti simulati anche su salti (es. `wait`), evitando drift a cavallo della mezzanotte

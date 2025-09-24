@@ -17,7 +17,7 @@ try:
 except Exception:
     pass
 import difflib
-from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item
+from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
 from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
@@ -48,6 +48,8 @@ COMMAND_HELP = {
     'unequip': {'usage': 'unequip <slot|oggetto>', 'desc': 'Rimuove oggetto equipaggiato.'},
     'drop': {'usage': 'drop <oggetto> [quantità]', 'desc': 'Lascia cadere oggetto dall\'inventario.'},
     'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).'},
+    'talk': {'usage': 'talk [nome_npc]', 'desc': 'Parla con gli NPC presenti. Senza nome mostra la lista.'},
+    'say': {'usage': 'say <messaggio>', 'desc': 'Continua una conversazione attiva con un NPC.'},
     'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.'},
     'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.'},
     'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.'},
@@ -344,6 +346,20 @@ def game_loop():
                 except Exception:
                     # Fall back to old examine
                     res = examine(state, registry, item_name)
+            elif cmd.startswith("talk"):
+                parts = cmd.split(maxsplit=1)
+                npc_name = parts[1].strip() if len(parts) > 1 else None
+                res = talk(state, registry, npc_name)
+            elif cmd.startswith("say"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: say <messaggio>")
+                    continue
+                message = parts[1].strip()
+                if not message:
+                    print("Uso: say <messaggio>")
+                    continue
+                res = say(state, registry, message)
             else:
                 close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
                 if close:

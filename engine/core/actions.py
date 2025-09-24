@@ -1187,3 +1187,45 @@ def say(state: GameState, registry: ContentRegistry, message: str) -> Dict[str, 
         "changes": {"dialogue_turn": message}
     }
 
+
+def process_npc_turn(npc, player, world, scene_context):
+    """Process an NPC AI turn with structured output validation.
+    
+    This is a hook for the new NPC AI adapter system that enforces
+    JSON schema validation and semantic correctness.
+    
+    Args:
+        npc: NPC object
+        player: Player state object
+        world: World state
+        scene_context: Dict with current scene information
+        
+    Returns:
+        Dict with NPC response (validated JSON structure)
+    """
+    from ..npc.llm_adapter import npc_turn
+    
+    def llm_call(system=None, user=None, **kwargs):
+        """LLM backend adapter - integrate with existing backend or mock."""
+        # TODO: Integrate with actual LLM backend (Ollama/OpenAI/LM Studio)
+        # For now, return a mock response for testing
+        if hasattr(world, 'llm_backend'):
+            return world.llm_backend.generate(system=system, user=user, **kwargs)
+        else:
+            # Mock response for testing
+            import json
+            mock_response = {
+                "npc_id": npc.id,
+                "mood": "neutral", 
+                "intent": "greet",
+                "action": None,
+                "say": f"Hello, I am {npc.name}.",
+                "memory_write": [],
+                "relationship_delta": 0,
+                "confidence": 0.8,
+                "stop_speaking_after": 1
+            }
+            return json.dumps(mock_response)
+    
+    return npc_turn(llm_call, npc, player, world, scene_context)
+

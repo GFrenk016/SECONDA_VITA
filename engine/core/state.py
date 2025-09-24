@@ -86,6 +86,11 @@ class GameState:
     #   'qte': { 'prompt': 'Premi A', 'expected': 'a', 'deadline_total': <minuti_totali_scadenza> },
     # }
     combat_session: dict | None = None
+    
+    # --- NPC AI Adapter System ---
+    # Player-NPC relationships stored as npc_id -> relationship_score (-10 to +10)
+    npc_memories: Dict[str, Any] = field(default_factory=dict)  # Reserved for future use
+    relationships: Dict[str, int] = field(default_factory=dict)  # npc_id -> relationship score
 
     def recompute_from_real(self, now_ts: float):
         if self.real_start_ts is None:

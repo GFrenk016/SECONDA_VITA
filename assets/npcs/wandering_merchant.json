@@ -27,9 +27,17 @@
     "prezzi"
   ],
   "special_knowledge": {
+    "oggetti": "Ho oggetti di ogni tipo: strumenti, pozioni, amuleti. Tutto dipende da quanto sei disposto a pagare!",
+    "commercio": "Il commercio è l'arte di trovare ciò che la gente vuole prima che se ne renda conto.",
+    "viaggi": "Ho viaggiato molto. Conosco strade che portano a luoghi che nemmeno immagini esistano.",
+    "villaggi": "Conosco tutti i villaggi nelle vicinanze. Ognuno ha le sue specialità e i suoi problemi.",
     "oggetti magici": "Ho visto cose che non crederesti... cristalli che brillano di luce propria, amuleti che proteggono dal male.",
     "villaggi vicini": "Conosco tutti i sentieri che portano ai villaggi. Per il giusto prezzo, posso disegnare mappe accurate.",
-    "pericoli della zona": "Ci sono zone da evitare, creature pericolose. Le informazioni costano, ma la vita non ha prezzo."
+    "pericoli": "Ci sono zone da evitare, creature pericolose. Le informazioni non si vendono, si barattano con favori.",
+    "prezzi": "I miei prezzi sono sempre onesti. Un po' alti forse, ma onesti!",
+    "notizie": "Le notizie fresche valgono oro. Ho sempre le ultime informazioni dai villaggi.",
+    "rari": "Gli oggetti più rari li tengo nascosti. Solo i clienti fidati possono vederli.",
+    "affari": "Un buon affare è quando entrambi ci guadagnano... ma io ci guadagno un po' di più!"
   },
   "daily_schedule": {
     "08:00": "preparazione merci",

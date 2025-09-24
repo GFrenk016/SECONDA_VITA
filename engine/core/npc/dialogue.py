@@ -5,16 +5,72 @@ This module handles dialogue generation using AI (initially mock, later Ollama i
 
 from __future__ import annotations
 import random
+import json
 from typing import Dict, List, Any, Optional
 from .models import NPC, DialogueContext, NPCRelation, NPCState
+
+
+class OllamaClient:
+    """Simple Ollama HTTP client for AI dialogue generation."""
+    
+    def __init__(self, base_url: str = "http://localhost:11434"):
+        self.base_url = base_url
+        self.available = False
+        self._check_availability()
+    
+    def _check_availability(self):
+        """Check if Ollama is running and available."""
+        try:
+            import requests
+            response = requests.get(f"{self.base_url}/api/tags", timeout=2)
+            self.available = response.status_code == 200
+        except Exception:
+            self.available = False
+    
+    def generate_response(self, prompt: str, model: str = "llama3.2:3b") -> Optional[str]:
+        """Generate response using Ollama."""
+        if not self.available:
+            return None
+        
+        try:
+            import requests
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.7,
+                    "max_tokens": 150
+                }
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get("response", "").strip()
+        except Exception as e:
+            print(f"Ollama error: {e}")
+        
+        return None
 
 
 class AIDialogueEngine:
     """AI-powered dialogue generation for NPCs."""
     
     def __init__(self):
-        self.ollama_available = False  # Will be set to True when Ollama is integrated
+        self.ollama_client = OllamaClient()
+        self.ollama_available = self.ollama_client.available
         self._fallback_responses = self._init_fallback_responses()
+        
+        if self.ollama_available:
+            print("-- Ollama AI disponibile per dialoghi --")
+        else:
+            print("-- Ollama non disponibile, uso risposte predefinite --")
     
     def _init_fallback_responses(self) -> Dict[str, List[str]]:
         """Initialize fallback responses for when AI is not available."""
@@ -59,15 +115,92 @@ class AIDialogueEngine:
     def generate_response(self, npc: NPC, player_input: str, context: DialogueContext) -> str:
         """Generate NPC response to player input."""
         if self.ollama_available:
-            return self._generate_ai_response(npc, player_input, context)
-        else:
-            return self._generate_fallback_response(npc, player_input, context)
-    
-    def _generate_ai_response(self, npc: NPC, player_input: str, context: DialogueContext) -> str:
-        """Generate response using Ollama AI (future implementation)."""
-        # TODO: Implement Ollama integration
-        # For now, return fallback
+            ai_response = self._generate_ai_response(npc, player_input, context)
+            if ai_response:
+                return ai_response
+        
+        # Fallback to predefined responses
         return self._generate_fallback_response(npc, player_input, context)
+    
+    def _generate_ai_response(self, npc: NPC, player_input: str, context: DialogueContext) -> Optional[str]:
+        """Generate response using Ollama AI."""
+        # Build comprehensive prompt for AI
+        prompt = self._build_ai_prompt(npc, player_input, context)
+        
+        try:
+            response = self.ollama_client.generate_response(prompt)
+            if response and len(response.strip()) > 0:
+                # Clean up and validate response
+                response = response.strip()
+                # Remove quotes if AI wrapped response in quotes
+                if response.startswith('"') and response.endswith('"'):
+                    response = response[1:-1]
+                return response
+        except Exception as e:
+            print(f"AI generation error: {e}")
+        
+        return None
+    
+    def _build_ai_prompt(self, npc: NPC, player_input: str, context: DialogueContext) -> str:
+        """Build comprehensive prompt for AI dialogue generation."""
+        
+        # Character context
+        personality_traits = ", ".join(npc.personality.get("traits", []))
+        speech_patterns = ", ".join(npc.personality.get("speech_patterns", []))
+        
+        # Relationship context
+        relationship_context = {
+            NPCRelation.STRANGER: "Non conosci questo personaggio",
+            NPCRelation.ACQUAINTANCE: "Hai già incontrato questo personaggio",
+            NPCRelation.FRIEND: "Siete amici",
+            NPCRelation.ALLY: "Siete alleati",
+            NPCRelation.ENEMY: "Siete nemici",
+        }.get(npc.relationship, "Relazione neutra")
+        
+        # Mood context
+        mood_desc = "neutrale"
+        if npc.mood > 0.3:
+            mood_desc = "positivo e amichevole"
+        elif npc.mood < -0.3:
+            mood_desc = "negativo e scontroso"
+        
+        # Recent conversation
+        recent_history = ""
+        if context.conversation_history:
+            recent_turns = context.conversation_history[-3:]  # Last 3 turns
+            history_lines = []
+            for turn in recent_turns:
+                history_lines.append(f"Giocatore: {turn['player']}")
+                history_lines.append(f"{npc.name}: {turn['npc']}")
+            recent_history = "\n".join(history_lines)
+        
+        prompt = f"""Sei {npc.name}, un personaggio in un gioco di ruolo testuale ambientato in un bosco misterioso.
+
+CONTESTO PERSONAGGIO:
+- Nome: {npc.name}
+- Descrizione: {npc.description}
+- Background: {npc.background}
+- Personalità: {personality_traits}
+- Modi di parlare: {speech_patterns}
+- Umore attuale: {mood_desc}
+- Relazione con il giocatore: {relationship_context}
+
+SITUAZIONE ATTUALE:
+- Luogo: {context.current_location}
+- Ora del giorno: {context.game_time}
+- Meteo: {context.weather}
+
+CONVERSAZIONE RECENTE:
+{recent_history}
+
+CONOSCENZE SPECIALI:
+{json.dumps(npc.special_knowledge, indent=2, ensure_ascii=False) if npc.special_knowledge else "Nessuna conoscenza speciale"}
+
+Il giocatore ti dice: "{player_input}"
+
+Rispondi come {npc.name} mantenendo il personaggio coerente. Rispondi in italiano, in modo naturale e conciso (massimo 2-3 frasi). Non usare asterischi o azioni tra parentesi, solo il dialogo diretto."""
+
+        return prompt
     
     def _generate_fallback_response(self, npc: NPC, player_input: str, context: DialogueContext) -> str:
         """Generate fallback response based on NPC state and simple rules."""
@@ -104,13 +237,7 @@ class AIDialogueEngine:
     
     def _handle_topic_response(self, npc: NPC, player_input: str, context: DialogueContext) -> Optional[str]:
         """Handle responses to specific topics."""
-        # Check NPC's conversation topics
-        for topic in npc.conversation_topics:
-            if topic.lower() in player_input:
-                # Generate topic-specific response
-                return self._generate_topic_response(npc, topic, context)
-        
-        # Check special knowledge
+        # Check special knowledge first (more specific)
         for knowledge_key in npc.special_knowledge:
             if knowledge_key.lower() in player_input:
                 knowledge = npc.special_knowledge[knowledge_key]
@@ -118,6 +245,35 @@ class AIDialogueEngine:
                     return knowledge
                 elif isinstance(knowledge, list):
                     return random.choice(knowledge)
+        
+        # Check NPC's conversation topics
+        for topic in npc.conversation_topics:
+            if topic.lower() in player_input:
+                # Generate topic-specific response
+                return self._generate_topic_response(npc, topic, context)
+        
+        # Handle common questions based on NPC type
+        if any(word in player_input for word in ['chi sei', 'chi', 'nome']):
+            return f"Sono {npc.name}. {npc.description}"
+        
+        if any(word in player_input for word in ['cosa fai', 'lavoro', 'occupazione']):
+            if npc.merchant:
+                return "Sono un mercante. Vendo oggetti utili ai viaggiatori."
+            elif npc.quest_giver:
+                return "Aiuto i viaggiatori che attraversano questi luoghi. Potresti essermi utile."
+            else:
+                return "Mi occupo di diverse cose qui nel bosco."
+        
+        if any(word in player_input for word in ['tempo', 'quanto tempo', 'da quanto']):
+            return "Vivo qui da molto tempo ormai. Ho visto molte cose."
+        
+        if any(word in player_input for word in ['aiuto', 'aiutare', 'bisogno']):
+            if npc.relationship in [NPCRelation.FRIEND, NPCRelation.ALLY]:
+                return "Naturalmente, sarò felice di aiutarti come posso."
+            elif npc.relationship == NPCRelation.ENEMY:
+                return "Non penso proprio di volerti aiutare."
+            else:
+                return "Dipende da cosa ti serve. Dimmi di più."
         
         return None
     

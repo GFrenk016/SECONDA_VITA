@@ -1,0 +1,122 @@
+[
+  {
+    "id": "molotov",
+    "name": "Molotov",
+    "weapon_class": "throwable",
+    "damage": 4,
+    "damage_type": "burn",
+    "reach": 3,
+    "noise_level": 2,
+    "aoe_factor": 0.6,
+    "uses": 1,
+    "status_effects": [["burn", 3, 1.0]]
+  },
+  {
+    "id": "frag_grenade",
+    "name": "Granata a frammentazione",
+    "weapon_class": "throwable",
+    "damage": 12,
+    "damage_type": "blast",
+    "reach": 5,
+    "noise_level": 5,
+    "aoe_factor": 1.0,
+    "uses": 1,
+    "status_effects": [["stun", 1, 0.6], ["bleed", 2, 0.5]]
+  },
+  {
+    "id": "smoke_bomb",
+    "name": "Bomba fumogena",
+    "weapon_class": "throwable",
+    "damage": 0,
+    "damage_type": "smoke",
+    "reach": 5,
+    "noise_level": 2,
+    "aoe_factor": 1.2,
+    "uses": 1,
+    "status_effects": [["conceal", 3, 1.0], ["cough", 2, 0.5]]
+  },
+  {
+    "id": "flashbang",
+    "name": "Flashbang",
+    "weapon_class": "throwable",
+    "damage": 1,
+    "damage_type": "flash",
+    "reach": 5,
+    "noise_level": 4,
+    "aoe_factor": 0.9,
+    "uses": 1,
+    "status_effects": [["blind", 2, 0.9], ["deafen", 3, 0.8], ["stun", 1, 0.7]]
+  },
+  {
+    "id": "tear_gas",
+    "name": "Gas lacrimogeno",
+    "weapon_class": "throwable",
+    "damage": 1,
+    "damage_type": "gas",
+    "reach": 5,
+    "noise_level": 2,
+    "aoe_factor": 1.1,
+    "uses": 1,
+    "status_effects": [["choke", 3, 0.8], ["weaken", 2, 0.7]]
+  },
+  {
+    "id": "pipe_bomb",
+    "name": "Pipe Bomb",
+    "weapon_class": "throwable",
+    "damage": 10,
+    "damage_type": "blast",
+    "reach": 5,
+    "noise_level": 5,
+    "aoe_factor": 0.9,
+    "uses": 1,
+    "status_effects": [["stun", 1, 0.6], ["bleed", 2, 0.4]]
+  },
+  {
+    "id": "nail_bomb",
+    "name": "Bomba a chiodi",
+    "weapon_class": "throwable",
+    "damage": 9,
+    "damage_type": "blast",
+    "reach": 5,
+    "noise_level": 5,
+    "aoe_factor": 0.8,
+    "uses": 1,
+    "status_effects": [["bleed", 3, 0.9], ["maim", 2, 0.4]]
+  },
+  {
+    "id": "thermite_charge",
+    "name": "Carica al termite",
+    "weapon_class": "throwable",
+    "damage": 8,
+    "damage_type": "burn",
+    "reach": 4,
+    "noise_level": 3,
+    "aoe_factor": 0.7,
+    "uses": 1,
+    "status_effects": [["burn", 4, 1.0], ["armor_melt", 2, 0.6]]
+  },
+  {
+    "id": "throwing_knife",
+    "name": "Coltello da lancio",
+    "weapon_class": "throwable",
+    "damage": 5,
+    "damage_type": "pierce",
+    "reach": 6,
+    "noise_level": 1,
+    "aoe_factor": 0.0,
+    "uses": 1,
+    "status_effects": [["bleed", 3, 0.9]]
+  },
+  {
+    "id": "impact_grenade",
+    "name": "Granata a impatto",
+    "weapon_class": "throwable",
+    "damage": 8,
+    "damage_type": "blast",
+    "reach": 5,
+    "noise_level": 5,
+    "aoe_factor": 0.7,
+    "uses": 1,
+    "status_effects": [["stun", 1, 0.6]]
+  }
+]

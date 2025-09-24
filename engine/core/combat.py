@@ -57,9 +57,11 @@ from .combat_system.ai import TacticalAI
 
 # Enhanced weapon definitions with new attributes
 WEAPONS: Dict[str, Dict[str, Any]] = {
+    # Default knife preserved for fallback; external assets may override/augment
     'knife': {
         'id': 'knife', 
         'name': 'Coltello', 
+        'weapon_class': 'melee',
         'damage': 3,
         'damage_type': 'slash',
         'reach': 1,
@@ -118,6 +120,16 @@ def inject_content(weapons: Dict[str, Any], mobs: Dict[str, Any]):
             enhanced_weapon = weapon_data.copy()
             
             # Add defaults for new attributes if not present
+            if 'weapon_class' not in enhanced_weapon:
+                tags = set(enhanced_weapon.get('tags', []))
+                if 'ranged' in tags:
+                    enhanced_weapon['weapon_class'] = 'ranged'
+                elif 'throwable' in tags:
+                    enhanced_weapon['weapon_class'] = 'throwable'
+                elif 'heavy' in tags:
+                    enhanced_weapon['weapon_class'] = 'heavy'
+                else:
+                    enhanced_weapon['weapon_class'] = 'melee'
             if 'damage_type' not in enhanced_weapon:
                 enhanced_weapon['damage_type'] = 'slash' if 'blade' in enhanced_weapon.get('tags', []) else 'blunt'
             if 'reach' not in enhanced_weapon:
@@ -125,13 +137,38 @@ def inject_content(weapons: Dict[str, Any], mobs: Dict[str, Any]):
             if 'noise_level' not in enhanced_weapon:
                 enhanced_weapon['noise_level'] = 1
             if 'movesets' not in enhanced_weapon:
-                # Generate basic movesets based on weapon type
+                # Generate basic movesets based on weapon class
+                wclass = enhanced_weapon.get('weapon_class', 'melee')
                 base_damage = enhanced_weapon.get('damage', 1)
-                enhanced_weapon['movesets'] = {
-                    'light': {'stamina_cost': 10, 'windup': 1, 'recovery': 1, 'damage_multiplier': 0.8},
-                    'heavy': {'stamina_cost': 25, 'windup': 2, 'recovery': 2, 'damage_multiplier': 1.4},
-                    'thrust': {'stamina_cost': 15, 'windup': 1, 'recovery': 1, 'damage_multiplier': 1.1},
-                }
+                if wclass == 'ranged':
+                    enhanced_weapon['movesets'] = {
+                        'aimed': {'stamina_cost': 8, 'windup': 1, 'recovery': 1, 'damage_multiplier': 1.0},
+                        'snap': {'stamina_cost': 6, 'windup': 0, 'recovery': 1, 'damage_multiplier': 0.8},
+                    }
+                    # Ranged defaults
+                    enhanced_weapon.setdefault('damage_type', 'pierce')
+                    enhanced_weapon.setdefault('reach', 5)
+                    enhanced_weapon.setdefault('noise_level', 3)
+                    # Ammo-related defaults
+                    enhanced_weapon.setdefault('clip_size', 1)
+                    enhanced_weapon.setdefault('ammo_in_clip', enhanced_weapon.get('clip_size', 1))
+                    enhanced_weapon.setdefault('ammo_reserve', 0)
+                    enhanced_weapon.setdefault('reload_time', 2)
+                elif wclass == 'throwable':
+                    enhanced_weapon['movesets'] = {
+                        'throw': {'stamina_cost': 5, 'windup': 1, 'recovery': 0, 'damage_multiplier': 1.0},
+                    }
+                    enhanced_weapon.setdefault('aoe_factor', 0.6)  # portion of base damage applied to others
+                    enhanced_weapon.setdefault('reach', 3)
+                    enhanced_weapon.setdefault('noise_level', 2)
+                    enhanced_weapon.setdefault('uses', 1)
+                else:
+                    # melee / heavy fall back to melee defaults
+                    enhanced_weapon['movesets'] = {
+                        'light': {'stamina_cost': 10, 'windup': 1, 'recovery': 1, 'damage_multiplier': 0.8},
+                        'heavy': {'stamina_cost': 25, 'windup': 2, 'recovery': 2, 'damage_multiplier': 1.4},
+                        'thrust': {'stamina_cost': 15, 'windup': 1, 'recovery': 1, 'damage_multiplier': 1.1},
+                    }
             
             WEAPONS[weapon_id] = enhanced_weapon
     
@@ -227,18 +264,65 @@ def _create_move_from_weapon(weapon_data: Dict[str, Any], move_type: str = 'ligh
         damage_type = DamageType(damage_type_str)
     except ValueError:
         damage_type = DamageType.BLUNT
+
+    # Parse optional status effects defined at moveset level (e.g., [["bleed", 3, 1.0]])
+    move_status_effects = []
+    for eff in moveset.get('status_effects', []) or []:
+        # Expected shape: [effect_str, duration:int, intensity:float]
+        try:
+            eff_str, dur, inten = eff[0], int(eff[1]), float(eff[2])
+            key = str(eff_str).lower()
+            eff_enum = {
+                'bleed': StatusEffect.BLEED,
+                'bleeding': StatusEffect.BLEED,
+                'burn': StatusEffect.BURN,
+                'fire': StatusEffect.BURN,
+                'concussed': StatusEffect.CONCUSSED,
+                'stun': StatusEffect.CONCUSSED,
+                'staggered': StatusEffect.STAGGERED,
+                'stagger': StatusEffect.STAGGERED,
+                'crippled': StatusEffect.CRIPPLED,
+                'cripple': StatusEffect.CRIPPLED,
+            }.get(key, None)
+            if eff_enum is not None:
+                move_status_effects.append((eff_enum, dur, inten))
+        except Exception:
+            # Ignore malformed entries
+            continue
+    # Also allow weapon-level status_effects (applies to all moves)
+    for eff in weapon_data.get('status_effects', []) or []:
+        try:
+            eff_str, dur, inten = eff[0], int(eff[1]), float(eff[2])
+            key = str(eff_str).lower()
+            eff_enum = {
+                'bleed': StatusEffect.BLEED,
+                'bleeding': StatusEffect.BLEED,
+                'burn': StatusEffect.BURN,
+                'fire': StatusEffect.BURN,
+                'concussed': StatusEffect.CONCUSSED,
+                'stun': StatusEffect.CONCUSSED,
+                'staggered': StatusEffect.STAGGERED,
+                'stagger': StatusEffect.STAGGERED,
+                'crippled': StatusEffect.CRIPPLED,
+                'cripple': StatusEffect.CRIPPLED,
+            }.get(key, None)
+            if eff_enum is not None:
+                move_status_effects.append((eff_enum, dur, inten))
+        except Exception:
+            continue
     
     return MoveSpec(
         id=f"{weapon_data['id']}_{move_type}",
         name=f"{weapon_data['name']} ({move_type})",
         move_type=move_type,
-        stamina_cost=moveset['stamina_cost'],
+        stamina_cost=moveset.get('stamina_cost', 10),
         reach=weapon_data.get('reach', 1),
         windup_time=moveset.get('windup', 1),
         recovery_time=moveset.get('recovery', 1),
         noise_level=weapon_data.get('noise_level', 1),
         damage_base=weapon_data.get('damage', 1) * moveset.get('damage_multiplier', 1.0),
-        damage_type=damage_type
+        damage_type=damage_type,
+        status_effects=move_status_effects
     )
 
 def _get_player_data(state: GameState) -> Dict[str, Any]:
@@ -252,6 +336,39 @@ def _get_player_data(state: GameState) -> Dict[str, Any]:
         'ai_state': 'aggressive',  # Not used for player
         'ai_traits': {}
     }
+
+# ---- Ranged helpers ----
+def _is_ranged_weapon(weapon_data: Dict[str, Any] | None) -> bool:
+    return bool(weapon_data) and weapon_data.get('weapon_class') == 'ranged'
+
+def _consume_ammo_if_needed(weapon_data: Dict[str, Any]) -> tuple[bool, str]:
+    """For ranged weapons, consume 1 ammo from clip; if empty, block and return message."""
+    if not _is_ranged_weapon(weapon_data):
+        return True, ''
+    clip = int(weapon_data.get('ammo_in_clip', 0))
+    if clip <= 0:
+        return False, "Nessun colpo nel caricatore. Usa 'reload'."
+    weapon_data['ammo_in_clip'] = clip - 1
+    return True, ''
+
+def _reload_weapon(weapon_data: Dict[str, Any]) -> tuple[str, bool]:
+    """Perform reload on a ranged weapon using its ammo fields. Returns (message, changed)."""
+    if not _is_ranged_weapon(weapon_data):
+        return ("Non stai impugnando un'arma da fuoco.", False)
+    clip_size = int(weapon_data.get('clip_size', 0))
+    in_clip = int(weapon_data.get('ammo_in_clip', 0))
+    reserve = int(weapon_data.get('ammo_reserve', 0))
+    if clip_size <= 0:
+        return ("Questa arma non supporta ricarica.", False)
+    if in_clip >= clip_size:
+        return ("Il caricatore è già pieno.", False)
+    if reserve <= 0:
+        return ("Nessuna munizione di riserva.", False)
+    needed = clip_size - in_clip
+    to_load = min(needed, reserve)
+    weapon_data['ammo_in_clip'] = in_clip + to_load
+    weapon_data['ammo_reserve'] = reserve - to_load
+    return (f"Ricarichi {to_load} colpi ({weapon_data['ammo_in_clip']}/{clip_size} | riserva {weapon_data['ammo_reserve']}).", True)
 
 def _get_enemy_data(enemy_def: Dict[str, Any]) -> Dict[str, Any]:
     """Convert legacy enemy definition to new format."""
@@ -626,6 +743,23 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
         return {'lines': ['Il combattimento è già concluso.'], 'hints': [], 'events_triggered': [], 'changes': {}}
 
     command = command.lower().strip()
+
+    # Reload for ranged weapons
+    if command == 'reload':
+        if s['phase'] != 'player':
+            raise CombatError('Non è il tuo turno.')
+        s['last_player_action_real'] = time.time()
+        if not state.player_weapon_id or state.player_weapon_id not in WEAPONS:
+            return {'lines': ['Nessuna arma equipaggiata.'], 'hints': [], 'events_triggered': [], 'changes': {}}
+        w = WEAPONS[state.player_weapon_id]
+        msg, changed = _reload_weapon(w)
+        lines.append(msg)
+        if changed:
+            # Simula costo tempo ricarica: ritarda prossimo attacco nemico principale di reload_time minuti
+            rt = int(max(1, round(float(w.get('reload_time', 2)))))
+            s['next_enemy_attack_total'] = max(s.get('next_enemy_attack_total', _total_minutes(state)), _total_minutes(state)) + rt
+        lines.extend(_process_realtime_events(state))
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
     
     # Status command with enhanced info (multi nemico)
     if command == 'status':
@@ -652,6 +786,13 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
         if s['phase'] == 'qte' and s.get('qte'):
             remaining = max(0, s['qte']['deadline_total'] - _total_minutes(state))
             status_line += f" | QTE: {s['qte']['prompt']} (restano {remaining} minuti)"
+        # Show ammo if ranged weapon equipped
+        if state.player_weapon_id and state.player_weapon_id in WEAPONS:
+            w = WEAPONS[state.player_weapon_id]
+            if _is_ranged_weapon(w):
+                status_line += f" | Munizioni: {int(w.get('ammo_in_clip',0))}/{int(w.get('clip_size',0))} (riserva {int(w.get('ammo_reserve',0))})"
+            elif w.get('weapon_class') == 'throwable':
+                status_line += f" | Usi: {int(w.get('uses',1))}"
         lines.append(status_line)
         # Elenco nemici multilinea
         if enemies:
@@ -702,6 +843,139 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
         s['focus_enemy_id'] = target_enemy['id']
         lines.append(f"Ti concentri su {target_enemy['name']}.")
         _emit_combat_event('focus_set', {'_state': state, 'enemy_id': target_enemy['id'], 'enemy_index': idx_used})
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+
+    # Throw (consume uses, AoE apply)
+    if command.startswith('throw'):
+        if s['phase'] != 'player':
+            raise CombatError('Non è il tuo turno.')
+        s['last_player_action_real'] = time.time()
+        if not state.player_weapon_id or state.player_weapon_id not in WEAPONS:
+            return {'lines': ['Nessuna arma equipaggiata.'], 'hints': [], 'events_triggered': [], 'changes': {}}
+        w = WEAPONS[state.player_weapon_id]
+        if w.get('weapon_class') != 'throwable':
+            return {'lines': ["Questa non è un'arma da lancio."], 'hints': [], 'events_triggered': [], 'changes': {}}
+        uses = int(w.get('uses', 0))
+        if uses <= 0:
+            return {'lines': ["Non ti rimangono usi."], 'hints': [], 'events_triggered': [], 'changes': {}}
+        # Identify target index if provided
+        enemies = s.get('enemies', [])
+        target_enemy = None
+        if ' ' in command:
+            parts = command.split()
+            if len(parts) >= 2 and parts[1].isdigit():
+                idx = int(parts[1]) - 1
+                if 0 <= idx < len(enemies):
+                    target_enemy = enemies[idx]
+        if target_enemy is None:
+            # default to first alive
+            for e in enemies:
+                if e['hp'] > 0:
+                    target_enemy = e
+                    break
+        if target_enemy is None and enemies:
+            target_enemy = enemies[0]
+        if not target_enemy:
+            raise CombatError('Nessun bersaglio disponibile.')
+        # Build move from weapon (throw)
+        available_moves = _get_available_moves(state)
+        chosen_move = None
+        for mv in available_moves:
+            if mv.move_type == 'throw':
+                chosen_move = mv
+                break
+        if not chosen_move and available_moves:
+            chosen_move = available_moves[0]
+        if not chosen_move:
+            raise CombatError('Nessuna mossa disponibile.')
+        # Resolve primary hit
+        resolver = _get_combat_resolver()
+        player_id = s.get('player_id', 'player')
+        ctx = CombatContext(attacker_id=player_id, defender_id=target_enemy['id'], move=chosen_move)
+        player_data = _get_player_data(state)
+        enemy_data = _get_enemy_data({'hp': target_enemy['hp'], 'attack': target_enemy['attack']})
+        result = resolver.resolve_attack(ctx, player_data, enemy_data)
+        # Consume one use regardless of hit success
+        w['uses'] = max(0, uses - 1)
+        if not result.success:
+            lines.extend(['Lancio mancato.'])
+            lines.extend(_process_realtime_events(state))
+            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+        total_damage = sum(d.amount for d in result.damage_dealt)
+        dmg_int = max(0, int(round(total_damage)))
+        target_enemy['hp'] = max(0, target_enemy['hp'] - dmg_int)
+        s['enemy_id'] = target_enemy['id']
+        s['enemy_name'] = target_enemy['name']
+        s['enemy_hp'] = target_enemy['hp']
+        s['enemy_max_hp'] = target_enemy['max_hp']
+        primary_report = f"Colpisci {target_enemy['name']} per {dmg_int} danni ({target_enemy['hp']}/{target_enemy['max_hp']})."
+        # AoE to others
+        aoe_factor = float(w.get('aoe_factor', 0.0))
+        splash_reports = []
+        if aoe_factor > 0:
+            others = [e for e in enemies if e is not target_enemy and e['hp'] > 0]
+            for other in others:
+                ctx2 = CombatContext(attacker_id=player_id, defender_id=other['id'], move=chosen_move)
+                enemy2 = _get_enemy_data({'hp': other['hp'], 'attack': other['attack']})
+                r2 = resolver.resolve_attack(ctx2, player_data, enemy2)
+                if not r2.success:
+                    continue
+                base2 = sum(d.amount for d in r2.damage_dealt)
+                splash = max(0, int(round(base2 * aoe_factor)))
+                if splash <= 0:
+                    continue
+                other['hp'] = max(0, other['hp'] - splash)
+                splash_reports.append(f"{other['name']} -{splash} ({other['hp']}/{other['max_hp']})")
+        line = primary_report
+        if splash_reports:
+            line += " Spruzzi colpiscono: " + "; ".join(splash_reports)
+            _emit_combat_event('throw_splash', {
+                '_state': state,
+                'targets': [
+                    {
+                        'enemy_id': e['id'],
+                        'enemy_index': enemies.index(e),
+                        'enemy_hp': e['hp']
+                    } for e in enemies if e is not target_enemy and e['hp']>0
+                ]
+            })
+        # Show remaining uses
+        line += f" | Usi rimasti: {int(w.get('uses',0))}"
+        if splash_reports:
+            _emit_combat_event('throw_splash', {
+                '_state': state,
+                'targets': [
+                    {
+                        'enemy_id': e['id'],
+                        'enemy_index': enemies.index(e),
+                        'enemy_hp': e['hp']
+                    } for e in enemies if e is not target_enemy and e['hp']>0
+                ]
+            })
+        lines.append(line)
+        _emit_combat_event('throw', {'_state': state, 'primary': target_enemy['id'], 'uses_left': int(w.get('uses',0))})
+        _check_end(state)
+        _auto_switch_focus_if_needed(state)
+        _sync_primary_alias(state)
+        if s['phase'] == 'ended':
+            lines.append('Hai vinto.')
+            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
+        # Process tick systems on primary only for simplicity
+        tick_damage = resolver.tick_systems(target_enemy['id'])
+        if tick_damage:
+            tick_total = sum(d.amount for d in tick_damage)
+            tick_int = max(0, int(round(tick_total)))
+            if tick_int > 0:
+                lines.append(f"Effetti stato causano {tick_int} danni aggiuntivi.")
+            target_enemy['hp'] = max(0, target_enemy['hp'] - tick_int)
+            s['enemy_hp'] = target_enemy['hp']
+        _check_end(state)
+        _auto_switch_focus_if_needed(state)
+        _sync_primary_alias(state)
+        if s['phase'] == 'ended':
+            lines.append('Hai vinto.')
+            return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {'combat': 'victory'}}
+        lines.extend(_process_realtime_events(state))
         return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
 
     # Attack (supporta target: attack 2)
@@ -776,7 +1050,7 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
                     if not result.success:
                         continue
                     base_damage = sum(d.amount for d in result.damage_dealt)
-                    aoe_damage = int(max(0, base_damage * scaling_factor))
+                    aoe_damage = max(0, int(round(base_damage * scaling_factor)))
                     enemy_obj['hp'] = max(0, enemy_obj['hp'] - aoe_damage)
                     total_report.append(f"{enemy_obj['name']} -{aoe_damage} ({enemy_obj['hp']}/{enemy_obj['max_hp']})")
                     per_target_events.append({
@@ -863,13 +1137,63 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
             player_id = s.get('player_id', 'player')
             enemy_id = target_enemy['id']
             
-            # Get available moves and choose default light attack
+            # Get available moves and choose based on ranged mode if applicable
             available_moves = _get_available_moves(state)
-            chosen_move = available_moves[0] if available_moves else None
+            chosen_move: MoveSpec | None = None
+            weapon_data = WEAPONS.get(state.player_weapon_id)
+            # Allow suffix 'aimed' or 'snap': e.g., 'attack aimed' / 'attack snap'
+            mode = None
+            if ' ' in command:
+                try:
+                    tail = command.split(' ', 1)[1].strip()
+                    # if first token is index (digit), next may be mode; else use tail directly
+                    tokens = tail.split()
+                    if tokens:
+                        if tokens[0].isdigit() and len(tokens) >= 2:
+                            mode = tokens[1]
+                        elif tokens[0] in ('aimed','snap'):
+                            mode = tokens[0]
+                except Exception:
+                    mode = None
+            if _is_ranged_weapon(weapon_data) and mode in ('aimed','snap'):
+                # pick moveset of that mode if present, else approximate via damage multiplier
+                # Build a temporary move overriding damage_base by multiplier if missing
+                # First, find base light move (or any)
+                base = available_moves[0] if available_moves else None
+                for mv in available_moves:
+                    if mv.move_type == mode:
+                        base = mv
+                        break
+                if base and base.move_type != mode:
+                    # synthesize a move variant
+                    movesets = weapon_data.get('movesets', {})
+                    mult = movesets.get(mode, {}).get('damage_multiplier', 1.0)
+                    chosen_move = MoveSpec(
+                        id=f"{weapon_data['id']}_{mode}",
+                        name=f"{weapon_data.get('name','')} ({mode})",
+                        move_type=mode,
+                        stamina_cost=movesets.get(mode, {}).get('stamina_cost', base.stamina_cost),
+                        reach=base.reach,
+                        windup_time=movesets.get(mode, {}).get('windup', base.windup_time),
+                        recovery_time=movesets.get(mode, {}).get('recovery', base.recovery_time),
+                        noise_level=base.noise_level,
+                        damage_base=(weapon_data.get('damage', 1) * mult),
+                        damage_type=base.damage_type,
+                        status_effects=movesets.get(mode, {}).get('status_effects', [])
+                    )
+            if chosen_move is None:
+                chosen_move = available_moves[0] if available_moves else None
             
             if not chosen_move:
                 raise CombatError('Nessuna mossa disponibile.')
             
+            # For ranged weapons, ensure ammo
+            if _is_ranged_weapon(weapon_data):
+                ok, msg = _consume_ammo_if_needed(weapon_data)
+                if not ok:
+                    lines.append(msg)
+                    lines.extend(_process_realtime_events(state))
+                    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
             # Create combat context
             ctx = CombatContext(
                 attacker_id=player_id,
@@ -888,9 +1212,10 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
                 # Realtime: nessuna fase enemy, processa eventi e resta al giocatore
                 lines.extend(_process_realtime_events(state))
                 return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
-            # Apply damage to legacy HP system
+            # Apply damage to legacy HP system (rounded to match display)
             total_damage = sum(d.amount for d in result.damage_dealt)
-            target_enemy['hp'] = max(0, target_enemy['hp'] - int(total_damage))
+            damage_int = max(0, int(round(total_damage)))
+            target_enemy['hp'] = max(0, target_enemy['hp'] - damage_int)
             s['enemy_hp'] = target_enemy['hp']
             
             # Build description
@@ -901,9 +1226,48 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
                 HitQuality.CRITICAL: "critico"
             }.get(result.hit_quality, "")
             
-            damage_text = f"infliggendo {total_damage:.0f} danni" if total_damage > 0 else "senza danni"
-            attack_line = f"Colpisci {quality_text} il {s['enemy_name']} {damage_text}. ({s['enemy_hp']}/{s['enemy_max_hp']})"
+            damage_text = f"infliggendo {damage_int} danni" if damage_int > 0 else "senza danni"
+            # Ammo display suffix if ranged
+            ammo_suffix = ''
+            if _is_ranged_weapon(weapon_data):
+                ammo_suffix = f" | Munizioni: {int(weapon_data.get('ammo_in_clip',0))}/{int(weapon_data.get('clip_size',0))} (riserva {int(weapon_data.get('ammo_reserve',0))})"
+            attack_line = f"Colpisci {quality_text} il {s['enemy_name']} {damage_text}. ({s['enemy_hp']}/{s['enemy_max_hp']}){ammo_suffix}"
             lines.append(attack_line)
+
+            # Heavy cleave: optionally hit additional enemies for scaled damage
+            cleave_reports = []
+            weapon_class = (weapon_data or {}).get('weapon_class') if weapon_data else None
+            if weapon_class == 'heavy':
+                cleave_targets = int((weapon_data or {}).get('cleave_targets', 0))
+                cleave_factor = float((weapon_data or {}).get('cleave_factor', 0.6))
+                if cleave_targets > 0 and cleave_factor > 0:
+                    others = [e for e in enemies if e is not target_enemy and e['hp'] > 0]
+                    for other in others[:cleave_targets]:
+                        # Reuse the same move context against other target
+                        ctx2 = CombatContext(attacker_id=player_id, defender_id=other['id'], move=chosen_move)
+                        e2 = _get_enemy_data({'hp': other['hp'], 'attack': other['attack']})
+                        r2 = resolver.resolve_attack(ctx2, player_data, e2)
+                        if not r2.success:
+                            continue
+                        base2 = sum(d.amount for d in r2.damage_dealt)
+                        cleave_dmg = max(0, int(round(base2 * cleave_factor)))
+                        if cleave_dmg <= 0:
+                            continue
+                        other['hp'] = max(0, other['hp'] - cleave_dmg)
+                        cleave_reports.append(f"{other['name']} -{cleave_dmg} ({other['hp']}/{other['max_hp']})")
+                    if cleave_reports:
+                        lines.append("Colpo pesante fende altri nemici: " + "; ".join(cleave_reports))
+                        _emit_combat_event('heavy_cleave', {
+                            '_state': state,
+                            'enemy_id': enemy_id,
+                            'targets': [
+                                {
+                                    'enemy_id': x['id'],
+                                    'enemy_index': enemies.index(x),
+                                    'enemy_hp': x['hp']
+                                } for x in enemies if x is not target_enemy and x['hp']>0
+                            ]
+                        })
             
             # Apply status effects
             for effect in result.status_effects_applied:
@@ -922,10 +1286,13 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
             tick_damage = resolver.tick_systems(enemy_id)
             if tick_damage:
                 tick_total = sum(d.amount for d in tick_damage)
-                lines.append(f"Effetti stato causano {tick_total:.0f} danni aggiuntivi.")
-                # Applica eventuali tick sul bersaglio ancora vivo (assumiamo stesso target)
-                tick_total = sum(d.amount for d in tick_damage)
-                target_enemy['hp'] = max(0, target_enemy['hp'] - int(tick_total))
+                tick_int = max(0, int(round(tick_total)))
+                # Display and apply the same integer amount
+                if tick_int > 0:
+                    lines.append(f"Effetti stato causano {tick_int} danni aggiuntivi.")
+                else:
+                    lines.append("Effetti stato causano 0 danni aggiuntivi.")
+                target_enemy['hp'] = max(0, target_enemy['hp'] - tick_int)
                 s['enemy_hp'] = target_enemy['hp']
                 _emit_combat_event('status_tick', {
                     '_state': state,

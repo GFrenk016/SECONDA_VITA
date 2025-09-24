@@ -1,0 +1,482 @@
+[
+  {
+    "id": "knife",
+    "name": "Coltello",
+    "weapon_class": "melee",
+    "damage": 3,
+    "damage_type": "slash",
+    "reach": 1,
+    "noise_level": 1,
+    "tags": ["starter", "light"],
+    "crit": { "chance": 0.10, "multiplier": 1.5 },
+    "movesets": {
+      "light":  { "stamina_cost": 4, "windup": 0, "recovery": 0, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.2 },
+      "thrust": { "stamina_cost": 6, "windup": 1, "recovery": 0, "damage_multiplier": 1.0, "status_effects": [["bleed", 3, 1.0]] }
+    }
+  },
+  {
+    "id": "machete",
+    "name": "Machete",
+    "weapon_class": "melee",
+    "damage": 6,
+    "damage_type": "slash",
+    "reach": 2,
+    "noise_level": 2,
+    "tags": ["medium", "survivor"],
+    "crit": { "chance": 0.15, "multiplier": 1.7 },
+    "movesets": {
+      "light":  { "stamina_cost": 6, "windup": 0, "recovery": 1, "damage_multiplier": 0.95 },
+      "heavy":  { "stamina_cost": 10, "windup": 1, "recovery": 1, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 8, "windup": 1, "recovery": 1, "damage_multiplier": 1.1, "status_effects": [["bleed", 5, 0.8]] }
+    }
+  },
+  {
+    "id": "hatchet",
+    "name": "Accetta",
+    "weapon_class": "melee",
+    "damage": 7,
+    "damage_type": "slash",
+    "reach": 2,
+    "noise_level": 3,
+    "tags": ["heavy", "chopping"],
+    "crit": { "chance": 0.12, "multiplier": 1.8 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 9, "windup": 2, "recovery": 2, "damage_multiplier": 1.5 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.2 }
+    }
+  },
+  {
+    "id": "crowbar",
+    "name": "Piede di porco",
+    "weapon_class": "melee",
+    "damage": 5,
+    "damage_type": "blunt",
+    "reach": 2,
+    "noise_level": 2,
+    "tags": ["tool", "medium"],
+    "crit": { "chance": 0.08, "multiplier": 1.4 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 8, "windup": 1, "recovery": 2, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.1, "status_effects": [["stun", 2, 0.5]] }
+    }
+  },
+  {
+    "id": "katana",
+    "name": "Katana",
+    "weapon_class": "melee",
+    "damage": 8,
+    "damage_type": "slash",
+    "reach": 3,
+    "noise_level": 2,
+    "tags": ["rare", "long"],
+    "crit": { "chance": 0.20, "multiplier": 2.0 },
+    "movesets": {
+      "light":  { "stamina_cost": 7, "windup": 0, "recovery": 1, "damage_multiplier": 1.1 },
+      "heavy":  { "stamina_cost": 12, "windup": 2, "recovery": 2, "damage_multiplier": 1.6 },
+      "thrust": { "stamina_cost": 9, "windup": 1, "recovery": 1, "damage_multiplier": 1.3, "status_effects": [["bleed", 8, 1.0]] }
+    }
+  },
+  {
+    "id": "bat",
+    "name": "Mazza da baseball",
+    "weapon_class": "melee",
+    "damage": 5,
+    "damage_type": "blunt",
+    "reach": 3,
+    "noise_level": 3,
+    "tags": ["common", "medium"],
+    "crit": { "chance": 0.10, "multiplier": 1.5 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 9, "windup": 2, "recovery": 2, "damage_multiplier": 1.4 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.1, "status_effects": [["stun", 3, 0.6]] }
+    }
+  },
+  {
+    "id": "combat_knife",
+    "name": "Coltello da combattimento",
+    "weapon_class": "melee",
+    "damage": 4,
+    "damage_type": "pierce",
+    "reach": 1,
+    "noise_level": 1,
+    "tags": ["military", "light"],
+    "crit": { "chance": 0.18, "multiplier": 1.6 },
+    "movesets": {
+      "light":  { "stamina_cost": 4, "windup": 0, "recovery": 0, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 5, "windup": 0, "recovery": 0, "damage_multiplier": 1.2, "status_effects": [["bleed", 4, 0.9]] }
+    }
+  },
+  {
+    "id": "fire_axe",
+    "name": "Ascia da pompiere",
+    "weapon_class": "melee",
+    "damage": 9,
+    "damage_type": "slash",
+    "reach": 3,
+    "noise_level": 4,
+    "tags": ["heavy", "tool"],
+    "crit": { "chance": 0.12, "multiplier": 1.9 },
+    "movesets": {
+      "light":  { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.1 },
+      "heavy":  { "stamina_cost": 12, "windup": 3, "recovery": 3, "damage_multiplier": 1.7 },
+      "thrust": { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.3 }
+    }
+  },
+  {
+    "id": "shiv",
+    "name": "Lama improvvisata",
+    "weapon_class": "melee",
+    "damage": 2,
+    "damage_type": "pierce",
+    "reach": 1,
+    "noise_level": 1,
+    "tags": ["improvised", "light"],
+    "crit": { "chance": 0.10, "multiplier": 1.4 },
+    "movesets": {
+      "light":  { "stamina_cost": 3, "windup": 0, "recovery": 0, "damage_multiplier": 0.8 },
+      "heavy":  { "stamina_cost": 5, "windup": 1, "recovery": 1, "damage_multiplier": 1.0 },
+      "thrust": { "stamina_cost": 4, "windup": 0, "recovery": 0, "damage_multiplier": 1.0, "status_effects": [["bleed", 2, 0.7]] }
+    }
+  },
+  {
+    "id": "sledgehammer",
+    "name": "Mazza da demolizione",
+    "weapon_class": "melee",
+    "damage": 12,
+    "damage_type": "blunt",
+    "reach": 3,
+    "noise_level": 5,
+    "tags": ["heavy", "breaker"],
+    "crit": { "chance": 0.10, "multiplier": 2.0 },
+    "movesets": {
+      "light":  { "stamina_cost": 8, "windup": 2, "recovery": 2, "damage_multiplier": 1.2 },
+      "heavy":  { "stamina_cost": 15, "windup": 4, "recovery": 4, "damage_multiplier": 2.0 },
+      "thrust": { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.4, "status_effects": [["stun", 5, 0.8]] }
+    }
+  },
+  {
+    "id": "cleaver",
+    "name": "Coltellaccio da macellaio",
+    "weapon_class": "melee",
+    "damage": 6,
+    "damage_type": "slash",
+    "reach": 1,
+    "noise_level": 2,
+    "tags": ["butcher", "heavy"],
+    "crit": { "chance": 0.14, "multiplier": 1.6 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 9, "windup": 1, "recovery": 1, "damage_multiplier": 1.4 },
+      "thrust": { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.1 }
+    }
+  },
+  {
+    "id": "pipe",
+    "name": "Tubo di ferro",
+    "weapon_class": "melee",
+    "damage": 4,
+    "damage_type": "blunt",
+    "reach": 2,
+    "noise_level": 3,
+    "tags": ["common", "improvised"],
+    "crit": { "chance": 0.08, "multiplier": 1.3 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 8, "windup": 2, "recovery": 2, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.0 }
+    }
+  },
+  {
+    "id": "spear",
+    "name": "Lancia artigianale",
+    "weapon_class": "melee",
+    "damage": 7,
+    "damage_type": "pierce",
+    "reach": 4,
+    "noise_level": 2,
+    "tags": ["crafted", "long"],
+    "crit": { "chance": 0.15, "multiplier": 1.7 },
+    "movesets": {
+      "light":  { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.5 },
+      "thrust": { "stamina_cost": 8, "windup": 1, "recovery": 1, "damage_multiplier": 1.4, "status_effects": [["bleed", 4, 0.8]] }
+    }
+  },
+  {
+    "id": "kukri",
+    "name": "Kukri",
+    "weapon_class": "melee",
+    "damage": 6,
+    "damage_type": "slash",
+    "reach": 2,
+    "noise_level": 2,
+    "tags": ["exotic", "medium"],
+    "crit": { "chance": 0.18, "multiplier": 1.8 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 1.1 },
+      "heavy":  { "stamina_cost": 9, "windup": 1, "recovery": 1, "damage_multiplier": 1.5 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.2, "status_effects": [["bleed", 6, 1.0]] }
+    }
+  },
+  {
+    "id": "pickaxe",
+    "name": "Piccone",
+    "weapon_class": "melee",
+    "damage": 8,
+    "damage_type": "pierce",
+    "reach": 3,
+    "noise_level": 4,
+    "tags": ["tool", "heavy"],
+    "crit": { "chance": 0.10, "multiplier": 1.7 },
+    "movesets": {
+      "light":  { "stamina_cost": 7, "windup": 1, "recovery": 2, "damage_multiplier": 1.2 },
+      "heavy":  { "stamina_cost": 12, "windup": 3, "recovery": 3, "damage_multiplier": 1.8 },
+      "thrust": { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.4 }
+    }
+  },
+  {
+    "id": "dagger",
+    "name": "Pugnale",
+    "weapon_class": "melee",
+    "damage": 4,
+    "damage_type": "pierce",
+    "reach": 1,
+    "noise_level": 1,
+    "tags": ["light", "stealth"],
+    "crit": { "chance": 0.22, "multiplier": 1.8 },
+    "movesets": {
+      "light":  { "stamina_cost": 3, "windup": 0, "recovery": 0, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.2 },
+      "thrust": { "stamina_cost": 5, "windup": 0, "recovery": 0, "damage_multiplier": 1.1, "status_effects": [["bleed", 3, 0.9]] }
+    }
+  },
+  {
+    "id": "warhammer",
+    "name": "Martello da guerra",
+    "weapon_class": "melee",
+    "damage": 11,
+    "damage_type": "blunt",
+    "reach": 3,
+    "noise_level": 4,
+    "tags": ["rare", "heavy"],
+    "crit": { "chance": 0.12, "multiplier": 2.2 },
+    "movesets": {
+      "light":  { "stamina_cost": 7, "windup": 2, "recovery": 2, "damage_multiplier": 1.3 },
+      "heavy":  { "stamina_cost": 14, "windup": 4, "recovery": 4, "damage_multiplier": 2.0 },
+      "thrust": { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.5, "status_effects": [["stun", 4, 0.7]] }
+    }
+  },
+  {
+    "id": "bone_club",
+    "name": "Clava d'osso",
+    "weapon_class": "melee",
+    "damage": 5,
+    "damage_type": "blunt",
+    "reach": 2,
+    "noise_level": 2,
+    "tags": ["primitive", "medium"],
+    "crit": { "chance": 0.08, "multiplier": 1.5 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 9, "windup": 2, "recovery": 2, "damage_multiplier": 1.4 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.1 }
+    }
+  },
+  {
+    "id": "bayonet",
+    "name": "Baionetta",
+    "weapon_class": "melee",
+    "damage": 5,
+    "damage_type": "pierce",
+    "reach": 2,
+    "noise_level": 1,
+    "tags": ["military", "light"],
+    "crit": { "chance": 0.15, "multiplier": 1.6 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 8, "windup": 1, "recovery": 1, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 6, "windup": 0, "recovery": 0, "damage_multiplier": 1.2, "status_effects": [["bleed", 4, 0.8]] }
+    }
+  },
+  {
+    "id": "wood_club",
+    "name": "Mazza di legno",
+    "weapon_class": "melee",
+    "damage": 3,
+    "damage_type": "blunt",
+    "reach": 2,
+    "noise_level": 2,
+    "tags": ["starter", "improvised"],
+    "crit": { "chance": 0.06, "multiplier": 1.3 },
+    "movesets": {
+      "light":  { "stamina_cost": 4, "windup": 0, "recovery": 1, "damage_multiplier": 0.8 },
+      "heavy":  { "stamina_cost": 7, "windup": 1, "recovery": 2, "damage_multiplier": 1.2 },
+      "thrust": { "stamina_cost": 5, "windup": 1, "recovery": 1, "damage_multiplier": 1.0 }
+    }
+  },
+  {
+    "id": "halberd",
+    "name": "Alabarda",
+    "weapon_class": "melee",
+    "damage": 10,
+    "damage_type": "slash",
+    "reach": 5,
+    "noise_level": 3,
+    "tags": ["polearm", "rare"],
+    "crit": { "chance": 0.14, "multiplier": 1.8 },
+    "movesets": {
+      "light":  { "stamina_cost": 8, "windup": 1, "recovery": 1, "damage_multiplier": 1.2 },
+      "heavy":  { "stamina_cost": 13, "windup": 3, "recovery": 3, "damage_multiplier": 1.7 },
+      "thrust": { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.5 }
+    }
+  },
+  {
+    "id": "scythe",
+    "name": "Falce",
+    "weapon_class": "melee",
+    "damage": 7,
+    "damage_type": "slash",
+    "reach": 4,
+    "noise_level": 3,
+    "tags": ["farm", "long"],
+    "crit": { "chance": 0.13, "multiplier": 1.6 },
+    "movesets": {
+      "light":  { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.5 },
+      "thrust": { "stamina_cost": 8, "windup": 1, "recovery": 1, "damage_multiplier": 1.3 }
+    }
+  },
+  {
+    "id": "icepick",
+    "name": "Punteruolo",
+    "weapon_class": "melee",
+    "damage": 3,
+    "damage_type": "pierce",
+    "reach": 1,
+    "noise_level": 1,
+    "tags": ["tool", "light"],
+    "crit": { "chance": 0.16, "multiplier": 1.5 },
+    "movesets": {
+      "light":  { "stamina_cost": 3, "windup": 0, "recovery": 0, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 5, "windup": 0, "recovery": 0, "damage_multiplier": 1.1, "status_effects": [["bleed", 2, 0.6]] }
+    }
+  },
+  {
+    "id": "bo_staff",
+    "name": "Bastone Bo",
+    "weapon_class": "melee",
+    "damage": 6,
+    "damage_type": "blunt",
+    "reach": 4,
+    "noise_level": 2,
+    "tags": ["martial", "long"],
+    "crit": { "chance": 0.12, "multiplier": 1.5 },
+    "movesets": {
+      "light":  { "stamina_cost": 6, "windup": 0, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 9, "windup": 1, "recovery": 2, "damage_multiplier": 1.4 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.2 }
+    }
+  },
+  {
+    "id": "tanto",
+    "name": "Tanto",
+    "weapon_class": "melee",
+    "damage": 5,
+    "damage_type": "slash",
+    "reach": 1,
+    "noise_level": 1,
+    "tags": ["exotic", "light"],
+    "crit": { "chance": 0.20, "multiplier": 1.8 },
+    "movesets": {
+      "light":  { "stamina_cost": 4, "windup": 0, "recovery": 0, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.4 },
+      "thrust": { "stamina_cost": 6, "windup": 1, "recovery": 0, "damage_multiplier": 1.2, "status_effects": [["bleed", 5, 1.0]] }
+    }
+  },
+  {
+    "id": "sickle",
+    "name": "Falcetto",
+    "weapon_class": "melee",
+    "damage": 4,
+    "damage_type": "slash",
+    "reach": 1,
+    "noise_level": 2,
+    "tags": ["farm", "light"],
+    "crit": { "chance": 0.14, "multiplier": 1.6 },
+    "movesets": {
+      "light":  { "stamina_cost": 4, "windup": 0, "recovery": 0, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 5, "windup": 0, "recovery": 0, "damage_multiplier": 1.1 }
+    }
+  },
+  {
+    "id": "gladius",
+    "name": "Gladio romano",
+    "weapon_class": "melee",
+    "damage": 7,
+    "damage_type": "pierce",
+    "reach": 2,
+    "noise_level": 2,
+    "tags": ["historic", "medium"],
+    "crit": { "chance": 0.18, "multiplier": 1.7 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 1.1 },
+      "heavy":  { "stamina_cost": 9, "windup": 2, "recovery": 2, "damage_multiplier": 1.5 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.3, "status_effects": [["bleed", 5, 0.9]] }
+    }
+  },
+  {
+    "id": "hook",
+    "name": "Gancio da macellaio",
+    "weapon_class": "melee",
+    "damage": 6,
+    "damage_type": "pierce",
+    "reach": 1,
+    "noise_level": 2,
+    "tags": ["butcher", "medium"],
+    "crit": { "chance": 0.13, "multiplier": 1.5 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 8, "windup": 1, "recovery": 1, "damage_multiplier": 1.4 },
+      "thrust": { "stamina_cost": 6, "windup": 1, "recovery": 0, "damage_multiplier": 1.2, "status_effects": [["bleed", 4, 0.8]] }
+    }
+  },
+  {
+    "id": "spade",
+    "name": "Vanga",
+    "weapon_class": "melee",
+    "damage": 5,
+    "damage_type": "blunt",
+    "reach": 3,
+    "noise_level": 3,
+    "tags": ["farm", "tool"],
+    "crit": { "chance": 0.08, "multiplier": 1.4 },
+    "movesets": {
+      "light":  { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.0 },
+      "heavy":  { "stamina_cost": 10, "windup": 2, "recovery": 2, "damage_multiplier": 1.5 },
+      "thrust": { "stamina_cost": 7, "windup": 1, "recovery": 1, "damage_multiplier": 1.2 }
+    }
+  },
+  {
+    "id": "chain",
+    "name": "Catena",
+    "weapon_class": "melee",
+    "damage": 4,
+    "damage_type": "blunt",
+    "reach": 3,
+    "noise_level": 3,
+    "tags": ["improvised", "medium"],
+    "crit": { "chance": 0.09, "multiplier": 1.5 },
+    "movesets": {
+      "light":  { "stamina_cost": 5, "windup": 0, "recovery": 1, "damage_multiplier": 0.9 },
+      "heavy":  { "stamina_cost": 8, "windup": 2, "recovery": 2, "damage_multiplier": 1.3 },
+      "thrust": { "stamina_cost": 6, "windup": 1, "recovery": 1, "damage_multiplier": 1.1 }
+    }
+  }
+]

@@ -9,6 +9,13 @@ Then type commands:
 """
 from __future__ import annotations
 from game.bootstrap import load_world_and_state
+import sys
+try:
+    # Forza l'output UTF-8 su Windows per evitare errori 'charmap' durante la stampa
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 import difflib
 from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
@@ -358,7 +365,8 @@ def main_menu():
     print(title)
     print(deco)
     print("1) Inizia partita")
-    print("2) Esci")
+    print("2) Tutorial")
+    print("3) Esci")
     while True:
         choice = input(PROMPT).strip().lower()
         if choice in {"1", "i", "inizia", "start", "s"}:
@@ -367,18 +375,303 @@ def main_menu():
             print(title)
             print(deco)
             print("1) Inizia partita")
-            print("2) Esci")
-        elif choice in {"2", "q", "quit", "exit"}:
+            print("2) Tutorial")
+            print("3) Esci")
+        elif choice in {"2", "t", "tutorial"}:
+            tutorial_loop()
+            print(deco)
+            print(title)
+            print(deco)
+            print("1) Inizia partita")
+            print("2) Tutorial")
+            print("3) Esci")
+        elif choice in {"3", "q", "quit", "exit"}:
             print("Arrivederci.")
             break
         elif choice == "help":
             for line in help_lines():
                 print(line)
         else:
-            print("Seleziona 1 per iniziare o 2 per uscire (help per elenco comandi di gioco)")
+            print("Seleziona 1 per iniziare, 2 per il tutorial o 3 per uscire (help per elenco comandi di gioco)")
 
 def main():
     main_menu()
+
+# --- Guided Tutorial ---
+def tutorial_loop():
+    """Tutorial guidato, completo, passo-passo.
+
+    L'utente può digitare il comando suggerito oppure semplicemente premere Invio
+    per lasciare che il tutorial lo esegua automaticamente. In qualsiasi momento:
+      - 'skip' passa allo step successivo
+      - 'menu' torna al menu principale
+      - 'quit' esce dal gioco
+    """
+    registry, state = load_world_and_state()
+    weapons, mobs = load_combat_content()
+    inject_content(weapons, mobs)
+
+    # Inizializza sistemi inventario/statistiche/effects/loot/recipes
+    from engine.items import create_default_items, load_items_from_assets
+    from engine.loot import create_default_loot_tables, load_loot_tables_from_assets
+    from engine.crafting import create_default_recipes, load_recipes_from_assets
+    from engine.effects import create_default_effects
+
+    create_default_items(); create_default_loot_tables(); create_default_recipes(); create_default_effects()
+    try:
+        items_loaded = load_items_from_assets()
+        loot_loaded = load_loot_tables_from_assets()
+        recipes_loaded = load_recipes_from_assets()
+        print(f"-- Tutorial: contenuti caricati ({items_loaded} oggetti, {loot_loaded} loot, {recipes_loaded} ricette) --")
+    except Exception as e:
+        print(f"[Tutorial] Warning: caricamento asset: {e}")
+
+    # Per il tutorial usiamo QTE semplici (lettera singola)
+    try:
+        set_complex_qte(False)
+    except Exception:
+        pass
+
+    # Avvia ticker realtime come in game_loop, per QTE/landing
+    import time as _t
+    import threading as _th
+    _stop_event = _th.Event()
+
+    def _bg_ticker():
+        while not _stop_event.is_set():
+            try:
+                now_r = _t.time()
+                state.recompute_from_real(now_r)
+                lines = tick_combat(state)
+                if lines:
+                    for l in lines:
+                        print(l)
+                    try:
+                        print(PROMPT, end="", flush=True)
+                    except Exception:
+                        pass
+                _stop_event.wait(CLI_TICK_INTERVAL_SECONDS)
+            except Exception:
+                _stop_event.wait(0.5)
+
+    _ticker = _th.Thread(target=_bg_ticker, name="tutorial-ticker", daemon=True)
+    _ticker.start()
+
+    def _run_cmd(cmd: str):
+        """Esegue un comando come nel game_loop e stampa le linee risultanti."""
+        try:
+            if cmd == "look":
+                res = look(state, registry)
+            elif cmd.startswith("go "):
+                res = go(state, registry, cmd.split(maxsplit=1)[1])
+            elif cmd in {"status", "time"}:
+                res = status(state, registry)
+            elif cmd == "where":
+                res = where(state, registry)
+            elif cmd.startswith("inspect "):
+                res = inspect(state, registry, cmd.split(maxsplit=1)[1])
+            elif cmd.startswith("examine "):
+                # prova prima item examine poi fallback
+                target = cmd.split(maxsplit=1)[1]
+                try:
+                    res = examine_item(state, registry, target)
+                    if res["lines"] and "non trovato" in res["lines"][0]:
+                        res = examine(state, registry, target)
+                except Exception:
+                    res = examine(state, registry, target)
+            elif cmd.startswith("search "):
+                res = search(state, registry, cmd.split(maxsplit=1)[1])
+            elif cmd.startswith("wait until "):
+                res = wait_until(state, registry, cmd.split(maxsplit=2)[2])
+            elif cmd.startswith("wait"):
+                parts = cmd.split()
+                mins = int(parts[1]) if len(parts) > 1 else 5
+                res = wait(state, registry, mins)
+            elif cmd.startswith("spawn") and (not state.combat_session or state.combat_session.get('phase') == 'ended'):
+                # spawn esterno inizia il combattimento
+                parts = cmd.split()
+                enemy_id = parts[1]
+                res = spawn(state, registry, enemy_id)
+                if len(parts) >= 3 and parts[2].isdigit():
+                    count = max(1, int(parts[2]))
+                    if count > 1:
+                        combat_action(state, registry, f"spawn {enemy_id} {count-1}")
+            elif cmd.startswith("attack") or cmd.startswith("focus") or cmd.startswith("qte") or cmd in {"push","flee"} or cmd.startswith("spawn"):
+                parts = cmd.split(maxsplit=1)
+                if parts[0] == "qte":
+                    arg = parts[1] if len(parts) > 1 else ""
+                    res = combat_action(state, registry, 'qte', arg)
+                else:
+                    res = combat_action(state, registry, cmd)
+            elif cmd in {"inventory","inv"}:
+                res = inventory(state, registry)
+            elif cmd == "stats":
+                res = stats(state, registry)
+            elif cmd.startswith("use "):
+                res = use_item(state, registry, cmd.split(maxsplit=1)[1])
+            elif cmd.startswith("equip "):
+                res = equip_item(state, registry, cmd.split(maxsplit=1)[1])
+            elif cmd.startswith("unequip "):
+                res = unequip_item(state, registry, cmd.split(maxsplit=1)[1])
+            elif cmd.startswith("drop "):
+                parts = cmd.split()
+                item_name = parts[1]
+                qty = int(parts[2]) if len(parts) >= 3 and parts[2].isdigit() else 1
+                res = drop_item(state, registry, item_name, qty)
+            else:
+                print(f"[Tutorial] Comando non supportato nello step: {cmd}")
+                return
+            for line in res["lines"]:
+                print(line)
+        except Exception as e:
+            print(f"[Tutorial][ERRORE] {e}")
+
+    def _step(title: str, instruction: str, suggested: list[str] | None = None, auto: list[str] | None = None):
+        print(f"\n>>> {title} <<<")
+        print(instruction)
+        if suggested:
+            print("Esempi:")
+            for c in suggested:
+                print(f"  - {c}")
+        print("(Premi Invio per eseguire automaticamente, 'skip' per saltare, 'menu' per tornare al menu)")
+        while True:
+            user = input(PROMPT).strip()
+            if user == "":
+                if auto:
+                    for c in auto:
+                        _run_cmd(c)
+                break
+            if user.lower() in {"skip","s"}:
+                print("[Step saltato]")
+                break
+            if user.lower() in {"menu"}:
+                print("Ritorno al menu principale...")
+                try:
+                    _stop_event.set(); _ticker.join(timeout=1.0)
+                finally:
+                    pass
+                return "menu"
+            if user.lower() in {"quit","exit"}:
+                print("Arrivederci.")
+                try:
+                    _stop_event.set(); _ticker.join(timeout=1.0)
+                finally:
+                    pass
+                raise SystemExit(0)
+            # Esegui comando inserito
+            _run_cmd(user)
+
+    try:
+        # 1) Esplorazione base
+        _step(
+            "Esplorazione", 
+            "Osserva dove sei e lo stato del mondo.",
+            ["where", "look", "status"],
+            ["where","look","status"]
+        )
+        _step(
+            "Attendi il tempo",
+            "Fai passare qualche minuto e controlla di nuovo.",
+            ["wait 5", "wait until notte", "look"],
+            ["wait 5","look","wait until notte","look"]
+        )
+        _step(
+            "Interagisci con l'ambiente",
+            "Prova a inspect/examine/search un oggetto visibile (es. 'Cippo di Pietra').",
+            ["inspect Cippo di Pietra", "examine Cippo di Pietra", "search Cippo di Pietra"],
+            ["inspect Cippo di Pietra","examine Cippo di Pietra","search Cippo di Pietra"]
+        )
+
+        # 2) Inventario e statistiche
+        _step(
+            "Inventario",
+            "Apri l'inventario, equipaggia il coltello, controlla le statistiche.",
+            ["inventory", "equip Hunting Knife", "stats"],
+            ["inventory","equip Hunting Knife","stats"]
+        )
+        _step(
+            "Uso e gestione oggetti",
+            "Prova a usare un medkit, togli l'arma, lascia un oggetto.",
+            ["use Medkit", "unequip main_hand", "drop Cloth 1", "inventory"],
+            ["use Medkit","unequip main_hand","drop Cloth 1","inventory"]
+        )
+
+        # 3) Combattimento base
+        _step(
+            "Inizia un combattimento",
+            "Genera un nemico base (Vagante) e osserva lo stato.",
+            ["spawn walker_basic", "status"],
+            ["spawn walker_basic","status"]
+        )
+        _step(
+            "Attacca e osserva i QTE offensivi",
+            "Esegui alcuni 'attack' finché appare un prompt tipo 'Colpisci la testa! (T)'.\nQuando lo vedi, digita il tasto tra parentesi, oppure premi Invio e lo farò io.",
+            ["attack", "qte <tasto>"],
+            ["attack","attack","attack"]
+        )
+        # Se c'è un QTE offensivo attivo, auto-rispondilo se l'utente non lo ha fatto
+        try:
+            sess = getattr(state, 'combat_session', None)
+            if sess and sess.get('phase') == 'qte' and sess.get('qte') and sess['qte'].get('type')=='offense':
+                expected = sess['qte'].get('expected') or ""
+                if expected:
+                    _run_cmd(f"qte {expected}")
+        except Exception:
+            pass
+
+        _step(
+            "Difesa in tempo reale",
+            "Attendi che compaia 'Difesa! ...' e premi il tasto indicato per parare.\nOppure premi Invio e parerò automaticamente alla prossima finestra.",
+            ["status", "qte <tasto>", "attack"],
+            ["status"]
+        )
+        # Parata automatica se possibile
+        try:
+            sess = getattr(state, 'combat_session', None)
+            if sess and sess.get('phase') == 'qte' and sess.get('qte') and sess['qte'].get('type')=='defense':
+                expected = sess['qte'].get('expected') or ""
+                if expected:
+                    _run_cmd(f"qte {expected}")
+        except Exception:
+            pass
+
+        # 4) Combattimento avanzato: multi-nemico e tattiche
+        _step(
+            "Più nemici",
+            "Aggiungi altri due Vaganti e osserva la lista bersagli.",
+            ["spawn walker_basic 2", "status"],
+            ["spawn walker_basic 2","status"]
+        )
+        _step(
+            "Attacco ad area",
+            "Esegui un 'attack all' per colpire tutti (danno ridotto per bersaglio).",
+            ["attack all"],
+            ["attack all"]
+        )
+        _step(
+            "Focus bersaglio",
+            "Imposta il focus sul secondo nemico e colpiscilo.",
+            ["focus 2", "attack"],
+            ["focus 2","attack"]
+        )
+        _step(
+            "Controllo distanza",
+            "Usa 'push' per guadagnare spazio, poi prova a 'flee' per fuggire.",
+            ["push", "flee"],
+            ["push","flee"]
+        )
+
+        print("\n*** Tutorial completato! Torni al menu con 'menu' o premi Invio. ***")
+        user = input(PROMPT).strip().lower()
+        if user == "menu" or user == "":
+            print("Ritorno al menu principale...")
+        else:
+            print("Ritorno al menu principale...")
+    finally:
+        try:
+            _stop_event.set(); _ticker.join(timeout=1.0)
+        finally:
+            pass
 
 if __name__ == "__main__":
     main()

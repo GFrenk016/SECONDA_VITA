@@ -15,6 +15,11 @@ Seconda Vita è un motore narrativo testuale ambientato in un bosco, con profond
 - Tutti i testi (nomi, descrizioni, messaggi) sono centralizzati in `assets/strings.json` per una facile localizzazione e modifica
 - Sistema di combattimento ibrido realtime (fase 2.1): timer nemici + QTE (difesa/offesa) con pressione temporale. Supporto multi‑nemico, attacco ad area, focus.
 
+Suggerimenti rapidi combattimento:
+- Armi da fuoco: `attack aimed` / `attack snap`, `reload` per ricaricare. Lo stato mostra le munizioni.
+- Armi da lancio: `throw` (o `throw 2`) consuma 1 uso e infligge danno con splash (in base ad `aoe_factor`). Lo stato mostra `Usi`.
+- Armi pesanti: gli attacchi possono fendere più bersagli se l'arma definisce `cleave_targets` (>0); danno ai bersagli extra scalato da `cleave_factor`.
+
 ## Comandi base
 - `look` — osserva l'ambiente attuale
 - `go <direzione>` — muoviti nella direzione indicata

@@ -22,10 +22,27 @@ def _load_dir(path: str) -> Dict[str, dict]:
         try:
             with open(full, 'r', encoding='utf-8') as f:
                 obj = json.load(f)
-            _id = obj.get('id')
-            if not _id:
-                continue
-            data[_id] = obj
+            # Support either a single-weapon JSON with 'id',
+            # or a collection file (list of weapons),
+            # or a dict of categories -> list of weapons (e.g., ranged, melee...).
+            def _add_weapon(w: dict):
+                _id = w.get('id')
+                if _id:
+                    data[_id] = w
+
+            if isinstance(obj, dict) and 'id' in obj:
+                _add_weapon(obj)
+            elif isinstance(obj, list):
+                for w in obj:
+                    if isinstance(w, dict):
+                        _add_weapon(w)
+            elif isinstance(obj, dict):
+                # Try category containers e.g. {"ranged":[...], "melee":[...]}
+                for v in obj.values():
+                    if isinstance(v, list):
+                        for w in v:
+                            if isinstance(w, dict):
+                                _add_weapon(w)
         except Exception:
             # Skip malformed
             continue

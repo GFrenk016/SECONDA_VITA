@@ -17,7 +17,8 @@ try:
 except Exception:
     pass
 import difflib
-from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say
+from dataclasses import asdict
+from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, save_game, load_game, list_saves
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
 from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
@@ -52,6 +53,9 @@ COMMAND_HELP = {
     'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).'},
     'talk': {'usage': 'talk [nome_npc]', 'desc': 'Parla con gli NPC presenti. Senza nome mostra la lista.'},
     'say': {'usage': 'say <messaggio>', 'desc': 'Continua una conversazione attiva con un NPC.'},
+    'save': {'usage': 'save [nome_slot]', 'desc': 'Salva la partita corrente. Default: quicksave.'},
+    'load': {'usage': 'load [nome_slot]', 'desc': 'Carica una partita salvata. Default: quicksave.'},
+    'saves': {'usage': 'saves', 'desc': 'Mostra l\'elenco dei salvataggi disponibili.'},
     'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.'},
     'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.'},
     'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.'},
@@ -366,6 +370,22 @@ def game_loop():
                     print("Uso: say <messaggio>")
                     continue
                 res = say(state, registry, message)
+            elif cmd.startswith("save"):
+                parts = cmd.split(maxsplit=1)
+                slot_name = parts[1].strip() if len(parts) > 1 else "quicksave"
+                res = save_game(state, registry, slot_name)
+            elif cmd.startswith("load"):
+                parts = cmd.split(maxsplit=1)
+                slot_name = parts[1].strip() if len(parts) > 1 else "quicksave"
+                res = load_game(state, registry, slot_name=slot_name)
+                # If load successful, replace current state
+                if res.get("changes", {}).get("loaded"):
+                    new_state = res["changes"]["new_state"]
+                    # Copy the new state data to current state
+                    for field_name, field_value in asdict(new_state).items():
+                        setattr(state, field_name, field_value)
+            elif cmd == "saves":
+                res = list_saves(state, registry)
             else:
                 close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
                 if close:

@@ -1,0 +1,110 @@
+{
+  "events": {
+    "first_enter_bosco": {
+      "type": "narrative",
+      "conditions": [
+        {
+          "type": "flag",
+          "key": "visited_bosco",
+          "negate": true
+        }
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "key": "visited_bosco",
+          "value": true
+        },
+        {
+          "type": "show_message",
+          "text": "Il bosco ti accoglie con un sussurro di foglie. Per la prima volta varchi questa soglia antica."
+        },
+        {
+          "type": "timeline_event",
+          "text": "Primo ingresso nel bosco"
+        }
+      ]
+    },
+    "discover_stone_marker": {
+      "type": "discovery",
+      "conditions": [
+        {
+          "type": "location",
+          "key": "fronte_bosco:limite_sentiero"
+        },
+        {
+          "type": "flag",
+          "key": "inspected_cippo",
+          "negate": true
+        }
+      ],
+      "effects": [
+        {
+          "type": "show_message", 
+          "text": "Il cippo di pietra sembra vegliare sul confine tra il mondo conosciuto e l'ignoto."
+        }
+      ]
+    },
+    "night_forest_ambience": {
+      "type": "ambient",
+      "conditions": [
+        {
+          "type": "daytime",
+          "key": "notte"
+        },
+        {
+          "type": "location_contains",
+          "key": "fronte_bosco"
+        }
+      ],
+      "effects": [
+        {
+          "type": "show_message",
+          "text": "I suoni della notte si fanno più intensi. Qualcosa si muove tra gli alberi."
+        }
+      ],
+      "cooldown_minutes": 30
+    },
+    "mysterious_whisper": {
+      "type": "random",
+      "conditions": [
+        {
+          "type": "location",
+          "key": "fronte_bosco:limite_sentiero"
+        },
+        {
+          "type": "flag",
+          "key": "heard_whisper",
+          "negate": true
+        }
+      ],
+      "effects": [
+        {
+          "type": "show_message",
+          "text": "Un sussurro quasi impercettibile ti raggiunge dalle profondità del bosco: 'Finalmente... sei arrivato.'"
+        },
+        {
+          "type": "set_flag",
+          "key": "heard_whisper",
+          "value": true
+        },
+        {
+          "type": "timeline_event",
+          "text": "Udito un misterioso sussurro"
+        }
+      ],
+      "chance": 0.3
+    }
+  },
+  "room_events": {
+    "fronte_bosco:limite_sentiero": {
+      "on_enter": ["first_enter_bosco", "discover_stone_marker", "mysterious_whisper"]
+    },
+    "fronte_bosco:radura_muschiosa": {
+      "on_enter": ["night_forest_ambience"]
+    },
+    "fronte_bosco:quercia_cava": {
+      "on_enter": ["night_forest_ambience"]
+    }
+  }
+}

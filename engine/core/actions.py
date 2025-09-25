@@ -12,6 +12,8 @@ from .state import GameState
 from .registry import ContentRegistry
 from .world import MicroRoom, Exit
 from . import combat
+from . import persistence
+from . import events
 import textwrap
 import random
 import time
@@ -508,9 +510,20 @@ def go(state: GameState, registry: ContentRegistry, direction: str) -> Dict[str,
         raise ActionError("L'uscita è bloccata.")
     # Update location (macro doesn't change in this initial slice)
     state.current_micro = target_exit.target_micro
+    
+    # Process room entry events
+    new_location = state.location_key()
+    event_messages = events.process_events("on_enter", new_location, state, registry)
+    
     # Build result narrative via look after move
     look_result = look(state, registry)
-    look_result["changes"] = {"location": state.location_key()}
+    
+    # Add event messages to the result
+    if event_messages:
+        look_result["lines"].extend([""] + event_messages)
+        look_result["events_triggered"] = event_messages
+    
+    look_result["changes"] = {"location": new_location}
     return look_result
 
 def where(state: GameState, registry: ContentRegistry) -> Dict[str, object]:
@@ -1186,6 +1199,80 @@ def say(state: GameState, registry: ContentRegistry, message: str) -> Dict[str, 
         "events_triggered": [],
         "changes": {"dialogue_turn": message}
     }
+
+# --- Save/Load System ---
+
+def save_game(state: GameState, registry: ContentRegistry, slot_name: str = "quicksave") -> Dict[str, Any]:
+    """Save the current game state to a named slot."""
+    try:
+        filepath = persistence.save_game(state, slot_name)
+        return {
+            "lines": [f"Gioco salvato in: {slot_name}", f"File: {filepath}"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"saved": True, "slot": slot_name}
+        }
+    except persistence.SaveError as e:
+        return {
+            "lines": [f"Errore nel salvataggio: {e}"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"saved": False, "error": str(e)}
+        }
+
+def load_game(current_state: GameState, registry: ContentRegistry, slot_name: str = None, filepath: str = None) -> Dict[str, Any]:
+    """Load game state from a save file. Returns the loaded state in changes."""
+    try:
+        loaded_state = persistence.load_game(slot_name=slot_name, filepath=filepath)
+        source = filepath or slot_name or "unknown"
+        return {
+            "lines": [f"Gioco caricato da: {source}", f"Posizione: {loaded_state.location_key()}", f"Giorno {loaded_state.day_count}, {loaded_state.time_string()}"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"loaded": True, "new_state": loaded_state, "source": source}
+        }
+    except persistence.SaveError as e:
+        return {
+            "lines": [f"Errore nel caricamento: {e}"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"loaded": False, "error": str(e)}
+        }
+
+def list_saves(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """List all available save files."""
+    try:
+        saves = persistence.list_saves()
+        if not saves:
+            return {
+                "lines": ["Nessun salvataggio trovato."],
+                "hints": [],
+                "events_triggered": [],
+                "changes": {}
+            }
+        
+        lines = ["=== Salvataggi Disponibili ==="]
+        for save in saves[:10]:  # Show max 10 recent saves
+            time_str = f"{save['time_minutes'] // 60:02d}:{save['time_minutes'] % 60:02d}"
+            lines.append(f"• {save['slot_name']} - Giorno {save['day_count']} {time_str} - {save['date_saved'][:16]}")
+            lines.append(f"  Posizione: {save['location']}")
+        
+        if len(saves) > 10:
+            lines.append(f"... e altri {len(saves) - 10} salvataggi")
+            
+        return {
+            "lines": lines,
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"saves_count": len(saves)}
+        }
+    except Exception as e:
+        return {
+            "lines": [f"Errore nell'elenco salvataggi: {e}"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"error": str(e)}
+        }
 
 
 def process_npc_turn(npc, player, world, scene_context):

@@ -39,6 +39,14 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     registry.strings = strings_data
     registry.inspectables = inspectables_data  # type: ignore[attr-defined]
     
+    # Load events system
+    try:
+        from engine.core.events import load_events
+        load_events()
+        print("-- Sistema eventi caricato --")
+    except Exception as e:
+        print(f"Warning: Failed to load events: {e}")
+    
     # Load and register NPCs
     try:
         npcs = load_npcs_from_assets()

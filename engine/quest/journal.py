@@ -54,44 +54,61 @@ def _get_best_variant(quest: Quest, base_key: str, gs) -> str:
     Returns:
         Best matching journal text or empty string if not found
     """
+def _get_best_variant(quest: Quest, base_key: str, gs) -> str:
+    """Find the best journal variant based on current conditions.
+    
+    Args:
+        quest: Quest containing journal nodes
+        base_key: Base key to find variants for (should end with .default)
+        gs: GameState for condition checking
+        
+    Returns:
+        Best matching journal text or empty string if not found
+    """
+    # Remove .default suffix to get the base pattern
+    if base_key.endswith('.default'):
+        key_base = base_key[:-8]  # Remove '.default'
+    else:
+        key_base = base_key
+    
     # Check for weather-specific variants first
     weather = getattr(gs, 'weather', 'sereno')
-    weather_key = f"{base_key}.{weather}"
+    weather_key = f"{key_base}.{weather}"
     if weather_key in quest.journal_nodes:
         return quest.journal_nodes[weather_key]
     
     # Check for rain variant (common case)
     if weather in ['pioggia', 'storm']:
-        rain_key = f"{base_key}.rain"
+        rain_key = f"{key_base}.rain"
         if rain_key in quest.journal_nodes:
             return quest.journal_nodes[rain_key]
     
     # Check for time-specific variants
     daytime = getattr(gs, 'daytime', 'giorno')
-    time_key = f"{base_key}.{daytime}"
+    time_key = f"{key_base}.{daytime}"
     if time_key in quest.journal_nodes:
         return quest.journal_nodes[time_key]
     
     # Check for night variant (common case)
     if daytime == 'notte':
-        night_key = f"{base_key}.night"
+        night_key = f"{key_base}.night"
         if night_key in quest.journal_nodes:
             return quest.journal_nodes[night_key]
     
     # Check for location-specific variants
     if hasattr(gs, 'current_micro'):
-        location_key = f"{base_key}.{gs.current_micro}"
+        location_key = f"{key_base}.{gs.current_micro}"
         if location_key in quest.journal_nodes:
             return quest.journal_nodes[location_key]
     
     # Check for mood/stat variants
     morale = gs.flags.get('morale', 50) if hasattr(gs, 'flags') else 50
     if morale < 30:
-        low_morale_key = f"{base_key}.desperate"
+        low_morale_key = f"{key_base}.desperate"
         if low_morale_key in quest.journal_nodes:
             return quest.journal_nodes[low_morale_key]
     elif morale > 70:
-        high_morale_key = f"{base_key}.hopeful"
+        high_morale_key = f"{key_base}.hopeful"
         if high_morale_key in quest.journal_nodes:
             return quest.journal_nodes[high_morale_key]
     

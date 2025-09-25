@@ -7,6 +7,8 @@ from .runtime import QuestLog
 from .loader import load_main_story
 from .generator import generate_side_quests
 from .journal import emit
+from .integration import QuestEngineIntegration, initialize_quest_engine, get_quest_engine
+from . import commands
 
 __all__ = [
     'Quest', 'Step', 'Condition', 'Reward', 'QuestState',
@@ -15,5 +17,7 @@ __all__ = [
     'QuestLog',
     'load_main_story',
     'generate_side_quests', 
-    'emit'
+    'emit',
+    'QuestEngineIntegration', 'initialize_quest_engine', 'get_quest_engine',
+    'commands'
 ]

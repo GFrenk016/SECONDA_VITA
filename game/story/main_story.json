@@ -49,10 +49,10 @@
             "relation": {"clementine.affinity": 3}
           },
           "journal_nodes": {
-            "q.Q1_FIND_BANDAGE.s0.start": "La cucina odora di muffa. Il banco da lavoro ti aspetta.",
-            "q.Q1_FIND_BANDAGE.s0.rain": "La pioggia batte sul tetto; le mani ti tremano mentre rovisti nei cassetti.",
-            "q.Q1_FIND_BANDAGE.s1.done": "Il tessuto è ruvido, ma sarà abbastanza per fermare il sangue.",
-            "q.Q1_FIND_BANDAGE.s1.night": "Nell'oscurità, le dita si muovono per istinto, intrecciando i fili con cura."
+            "q.Q1_FIND_BANDAGE.s0.default": "La cucina odora di muffa. Il banco da lavoro ti aspetta.",
+            "q.Q1_FIND_BANDAGE.s0.pioggia": "La pioggia batte sul tetto; le mani ti tremano mentre rovisti nei cassetti.",
+            "q.Q1_FIND_BANDAGE.s1.default": "Il tessuto è ruvido, ma sarà abbastanza per fermare il sangue.",
+            "q.Q1_FIND_BANDAGE.s1.notte": "Nell'oscurità, le dita si muovono per istinto, intrecciando i fili con cura."
           }
         }
       ]

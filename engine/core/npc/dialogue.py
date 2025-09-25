@@ -377,15 +377,98 @@ Rispondi come {npc.name} mantenendo il personaggio coerente. Rispondi in italian
             'npc': response
         })
         
-        # Keep only recent conversation history
-        if len(context.conversation_history) > 10:
-            context.conversation_history = context.conversation_history[-10:]
+        # Keep only recent conversation history (8 turns as per requirements)
+        if len(context.conversation_history) > 8:
+            context.conversation_history = context.conversation_history[-8:]
+        
+        # Process keyword-based trust/affinity changes
+        self._process_keyword_affinity(npc, player_input)
         
         # Check if conversation should end
-        should_end = any(word in player_input.lower() for word in ['arrivederci', 'addio', 'bye', 'fine'])
+        should_end = any(word in player_input.lower() for word in ['arrivederci', 'addio', 'bye', 'fine', 'end'])
         
         return {
             'lines': [f"{npc.name}: {response}"],
             'conversation_active': not should_end,
-            'hints': [] if should_end else [f"Continua a parlare con {npc.name} o scrivi 'arrivederci' per terminare."]
+            'hints': [] if should_end else [f"Continua a parlare con {npc.name} o scrivi 'end' per terminare."]
+        }
+    
+    def _process_keyword_affinity(self, npc: NPC, player_input: str):
+        """Process keyword-based trust and affinity changes."""
+        input_lower = player_input.lower()
+        
+        # Kindness keywords - increase mood and trust
+        kindness_words = ['grazie', 'prego', 'scusa', 'mi dispiace', 'gentile', 'cortese', 'aiuto', 'posso aiutare']
+        if any(word in input_lower for word in kindness_words):
+            npc.adjust_mood(0.05)
+            if hasattr(npc, 'trust'):
+                npc.trust = min(1.0, getattr(npc, 'trust', 0.0) + 0.1)
+        
+        # Threat keywords - decrease mood and trust
+        threat_words = ['minaccia', 'uccidere', 'ammazzare', 'morte', 'nemico', 'guerra', 'attacco']
+        if any(word in input_lower for word in threat_words):
+            npc.adjust_mood(-0.15)
+            if hasattr(npc, 'trust'):
+                npc.trust = max(-1.0, getattr(npc, 'trust', 0.0) - 0.2)
+        
+        # Care keywords - increase mood moderately
+        care_words = ['cura', 'preoccupo', 'bene', 'salute', 'stai bene', 'tutto ok', 'va tutto bene']
+        if any(word in input_lower for word in care_words):
+            npc.adjust_mood(0.08)
+            if hasattr(npc, 'trust'):
+                npc.trust = min(1.0, getattr(npc, 'trust', 0.0) + 0.05)
+    
+    def get_npc_profile(self, npc: NPC, context: DialogueContext) -> Dict[str, Any]:
+        """Get detailed NPC profile information."""
+        # Relationship status description
+        relationship_desc = {
+            NPCRelation.STRANGER: "Non vi conoscete",
+            NPCRelation.ACQUAINTANCE: "Vi siete già incontrati",
+            NPCRelation.FRIEND: "Siete amici",
+            NPCRelation.ALLY: "Siete alleati",
+            NPCRelation.ENEMY: "Siete nemici",
+            NPCRelation.LOVER: "Avete una relazione romantica",
+            NPCRelation.FAMILY: "Siete parenti"
+        }.get(npc.relationship, "Relazione sconosciuta")
+        
+        # Mood description
+        if npc.mood > 0.5:
+            mood_desc = "molto positivo"
+        elif npc.mood > 0.2:
+            mood_desc = "positivo"
+        elif npc.mood > -0.2:
+            mood_desc = "neutrale"
+        elif npc.mood > -0.5:
+            mood_desc = "negativo"
+        else:
+            mood_desc = "molto negativo"
+        
+        # Trust level if available
+        trust_desc = ""
+        if hasattr(npc, 'trust'):
+            trust_val = getattr(npc, 'trust', 0.0)
+            if trust_val > 0.5:
+                trust_desc = " - Ti considera fidato"
+            elif trust_val < -0.5:
+                trust_desc = " - Non si fida di te"
+        
+        lines = [
+            f"=== Profilo di {npc.name} ===",
+            f"Descrizione: {npc.description}",
+            f"Stato attuale: {npc.current_state.value}",
+            f"Umore: {mood_desc}{trust_desc}",
+            f"Relazione: {relationship_desc}",
+            f"Interazioni precedenti: {len(npc.memories)}"
+        ]
+        
+        if npc.conversation_topics:
+            lines.append(f"Argomenti di interesse: {', '.join(npc.conversation_topics)}")
+        
+        if npc.special_knowledge:
+            lines.append(f"Conoscenze speciali: {len(npc.special_knowledge)} argomenti")
+        
+        return {
+            'lines': lines,
+            'conversation_active': True,
+            'hints': ["Continua la conversazione o chiedi informazioni specifiche."]
         }

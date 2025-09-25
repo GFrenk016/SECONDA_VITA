@@ -18,7 +18,7 @@ except Exception:
     pass
 import difflib
 from dataclasses import asdict
-from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, save_game, load_game, list_saves, choice, memories
+from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, end_conversation, profile, save_game, load_game, list_saves, choice, memories
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
 from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
@@ -26,41 +26,42 @@ from engine.core.loader.content_loader import load_combat_content
 PROMPT = "> "
 
 COMMAND_HELP = {
-    'look': {'usage': 'look', 'desc': 'Descrive l\'area attuale con eventuale linea ambientale.'},
-    'go': {'usage': 'go <direzione>', 'desc': 'Muove verso una direzione valida (n, s, e, w, ...).'},
-    'wait': {'usage': 'wait [minuti]  |  wait until <fase>', 'desc': 'Avanza il tempo simulato; until: mattina|giorno|sera|notte.'},
-    'status': {'usage': 'status', 'desc': 'Mostra orario/meteo/clima e (se in combattimento) stato nemici.'},
-    'time': {'usage': 'time', 'desc': 'Alias di status.'},
-    'where': {'usage': 'where', 'desc': 'Mostra macro->micro e tag stanza.'},
-    'inspect': {'usage': 'inspect <oggetto>', 'desc': 'Osservazione base; sblocca examine e search.'},
-    'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).'},
-    'search': {'usage': 'search <oggetto>', 'desc': 'Ricerca minuziosa (richiede examine precedente).'},
-    'spawn': {'usage': 'spawn <enemy_id> [count]', 'desc': 'Genera 1 o più nemici (se in combattimento li aggiunge alla battaglia).'},
-    'attack': {'usage': 'attack [index] | attack all', 'desc': 'Attacca il bersaglio (indice) oppure tutti (all, 50% danno).'},
-    'focus': {'usage': 'focus <index>', 'desc': 'Imposta il bersaglio focalizzato usato dagli attacchi senza indice.'},
-    'qte': {'usage': 'qte <tasto>', 'desc': 'Risponde a QTE attivo (offense/defense).'},
-    'push': {'usage': 'push', 'desc': 'Spingi indietro il nemico, ritardando il prossimo attacco.'},
-    'flee': {'usage': 'flee', 'desc': 'Tenta di fuggire; chance aumentata con distanza o nemico ferito.'},
-    'reload': {'usage': 'reload', 'desc': 'Ricarica l\'arma da fuoco impugnata (se presente).'},
-    'throw': {'usage': 'throw [index]', 'desc': 'Lancia un\'arma da lancio verso un bersaglio (consuma 1 uso).'},
+    'look': {'usage': 'look', 'desc': 'Descrive l\'area attuale con eventuale linea ambientale.', 'examples': ['look']},
+    'go': {'usage': 'go <direzione>', 'desc': 'Muove verso una direzione valida (n, s, e, w, ...).', 'examples': ['go n', 'go est', 'go su']},
+    'wait': {'usage': 'wait [minuti]  |  wait until <fase>', 'desc': 'Avanza il tempo simulato; until: mattina|giorno|sera|notte.', 'examples': ['wait', 'wait 15', 'wait until notte']},
+    'status': {'usage': 'status', 'desc': 'Mostra orario/meteo/clima e (se in combattimento) stato nemici.', 'examples': ['status']},
+    'time': {'usage': 'time', 'desc': 'Alias di status.', 'examples': ['time']},
+    'where': {'usage': 'where', 'desc': 'Mostra macro->micro e tag stanza.', 'examples': ['where']},
+    'inspect': {'usage': 'inspect <oggetto>', 'desc': 'Osservazione base; sblocca examine e search.', 'examples': ['inspect recinzione', 'inspect cippo', 'inspect tavolo']},
+    'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).', 'examples': ['examine recinzione', 'examine cippo di pietra']},
+    'search': {'usage': 'search <oggetto>', 'desc': 'Ricerca minuziosa (richiede examine precedente).', 'examples': ['search tavolo', 'search recinzione']},
+    'spawn': {'usage': 'spawn <enemy_id> [count]', 'desc': 'Genera 1 o più nemici (se in combattimento li aggiunge alla battaglia).', 'examples': ['spawn walker_basic', 'spawn rabbit 2']},
+    'attack': {'usage': 'attack [index] | attack all', 'desc': 'Attacca il bersaglio (indice) oppure tutti (all, 50% danno).', 'examples': ['attack', 'attack 1', 'attack all']},
+    'focus': {'usage': 'focus <index>', 'desc': 'Imposta il bersaglio focalizzato usato dagli attacchi senza indice.', 'examples': ['focus 1', 'focus 2']},
+    'qte': {'usage': 'qte <tasto>', 'desc': 'Risponde a QTE attivo (offense/defense).', 'examples': ['qte a', 'qte t', 'qte space']},
+    'push': {'usage': 'push', 'desc': 'Spingi indietro il nemico, ritardando il prossimo attacco.', 'examples': ['push']},
+    'flee': {'usage': 'flee', 'desc': 'Tenta di fuggire; chance aumentata con distanza o nemico ferito.', 'examples': ['flee']},
+    'reload': {'usage': 'reload', 'desc': 'Ricarica l\'arma da fuoco impugnata (se presente).', 'examples': ['reload']},
+    'throw': {'usage': 'throw [index]', 'desc': 'Lancia un\'arma da lancio verso un bersaglio (consuma 1 uso).', 'examples': ['throw', 'throw 1']},
     # New inventory and stats commands
-    'inventory': {'usage': 'inventory | inv', 'desc': 'Mostra inventario con peso e oggetti equipaggiati.'},
-    'stats': {'usage': 'stats', 'desc': 'Mostra statistiche giocatore, resistenze e buff attivi.'},
-    'use': {'usage': 'use <oggetto>', 'desc': 'Usa un oggetto dall\'inventario (consumabili).'},
-    'equip': {'usage': 'equip <oggetto>', 'desc': 'Equipaggia un oggetto dall\'inventario.'},
-    'unequip': {'usage': 'unequip <slot|oggetto>', 'desc': 'Rimuove oggetto equipaggiato.'},
-    'drop': {'usage': 'drop <oggetto> [quantità]', 'desc': 'Lascia cadere oggetto dall\'inventario.'},
-    'examine': {'usage': 'examine <oggetto>', 'desc': 'Analisi approfondita (richiede inspect precedente).'},
-    'talk': {'usage': 'talk [nome_npc]', 'desc': 'Parla con gli NPC presenti. Senza nome mostra la lista.'},
-    'say': {'usage': 'say <messaggio>', 'desc': 'Continua una conversazione attiva con un NPC.'},
-    'save': {'usage': 'save [nome_slot]', 'desc': 'Salva la partita corrente. Default: quicksave.'},
-    'load': {'usage': 'load [nome_slot]', 'desc': 'Carica una partita salvata. Default: quicksave.'},
-    'saves': {'usage': 'saves', 'desc': 'Mostra l\'elenco dei salvataggi disponibili.'},
-    'choice': {'usage': 'choice list|present <id>|choose <num>|history', 'desc': 'Sistema di scelte narrative.'},
-    'memories': {'usage': 'memories', 'desc': 'Mostra i frammenti di memoria del protagonista.'},
-    'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.'},
-    'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.'},
-    'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.'},
+    'inventory': {'usage': 'inventory | inv', 'desc': 'Mostra inventario con peso e oggetti equipaggiati.', 'examples': ['inventory', 'inv']},
+    'stats': {'usage': 'stats', 'desc': 'Mostra statistiche giocatore, resistenze e buff attivi.', 'examples': ['stats']},
+    'use': {'usage': 'use <oggetto>', 'desc': 'Usa un oggetto dall\'inventario (consumabili).', 'examples': ['use medkit', 'use bandage']},
+    'equip': {'usage': 'equip <oggetto>', 'desc': 'Equipaggia un oggetto dall\'inventario.', 'examples': ['equip knife', 'equip armor']},
+    'unequip': {'usage': 'unequip <slot|oggetto>', 'desc': 'Rimuove oggetto equipaggiato.', 'examples': ['unequip main_hand', 'unequip knife']},
+    'drop': {'usage': 'drop <oggetto> [quantità]', 'desc': 'Lascia cadere oggetto dall\'inventario.', 'examples': ['drop stone', 'drop cloth 2']},
+    'talk': {'usage': 'talk [nome_npc]', 'desc': 'Parla con gli NPC presenti. Senza nome mostra la lista.', 'examples': ['talk', 'talk Guardiano del Bosco']},
+    'say': {'usage': 'say <messaggio>', 'desc': 'Continua una conversazione attiva con un NPC.', 'examples': ['say Ciao, come stai?', 'say Hai bisogno di aiuto?']},
+    'end': {'usage': 'end', 'desc': 'Termina la conversazione corrente con un NPC.', 'examples': ['end']},
+    'profile': {'usage': 'profile [nome_npc]', 'desc': 'Mostra il profilo e le informazioni di un NPC.', 'examples': ['profile', 'profile Guardiano del Bosco']},
+    'save': {'usage': 'save [nome_slot]', 'desc': 'Salva la partita corrente. Default: quicksave.', 'examples': ['save', 'save miosalvataggio']},
+    'load': {'usage': 'load [nome_slot]', 'desc': 'Carica una partita salvata. Default: quicksave.', 'examples': ['load', 'load miosalvataggio']},
+    'saves': {'usage': 'saves', 'desc': 'Mostra l\'elenco dei salvataggi disponibili.', 'examples': ['saves']},
+    'choice': {'usage': 'choice list|present <id>|choose <num>|history', 'desc': 'Sistema di scelte narrative.', 'examples': ['choice list', 'choice history']},
+    'memories': {'usage': 'memories', 'desc': 'Mostra i frammenti di memoria del protagonista.', 'examples': ['memories']},
+    'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.', 'examples': ['help', 'help look', 'help combat']},
+    'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.', 'examples': ['menu']},
+    'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.', 'examples': ['quit', 'exit']},
 }
 
 def help_lines():
@@ -70,6 +71,10 @@ def help_lines():
         usage = info['usage']
         desc = info['desc']
         lines.append(f" {usage.ljust(max_usage)}  - {desc}")
+        # Add examples for key commands
+        if 'examples' in info and name in ['go', 'wait', 'inspect', 'talk', 'say']:
+            examples = ', '.join(info['examples'][:2])  # Show first 2 examples
+            lines.append(f" {''.ljust(max_usage)}    Esempi: {examples}")
     return lines
 
 def game_loop():
@@ -176,6 +181,8 @@ def game_loop():
                 info = COMMAND_HELP.get(topic)
                 if info:
                     print(f"Uso: {info['usage']}\n{info['desc']}")
+                    if 'examples' in info:
+                        print(f"Esempi: {', '.join(info['examples'])}")
                 else:
                     close = difflib.get_close_matches(topic, COMMAND_HELP.keys(), n=3)
                     if close:
@@ -372,6 +379,12 @@ def game_loop():
                     print("Uso: say <messaggio>")
                     continue
                 res = say(state, registry, message)
+            elif cmd == "end":
+                res = end_conversation(state, registry)
+            elif cmd.startswith("profile"):
+                parts = cmd.split(maxsplit=1)
+                npc_name = parts[1].strip() if len(parts) > 1 else None
+                res = profile(state, registry, npc_name)
             elif cmd.startswith("save"):
                 parts = cmd.split(maxsplit=1)
                 slot_name = parts[1].strip() if len(parts) > 1 else "quicksave"

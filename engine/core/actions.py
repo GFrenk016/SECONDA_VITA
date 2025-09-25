@@ -16,6 +16,7 @@ from . import persistence
 from . import events
 from . import choices
 from . import ambient_events
+from . import quests
 import textwrap
 import random
 import time
@@ -70,6 +71,52 @@ _AMBIENT_SNIPPETS = {
     ],
 }
 
+def _get_environmental_detail(state: GameState, old_signature: str, new_signature: str) -> str:
+    """Get a new environmental detail based on weather/time change."""
+    if not old_signature or not new_signature:
+        return ""
+    
+    old_parts = old_signature.split("|")
+    new_parts = new_signature.split("|")
+    
+    if len(old_parts) != 2 or len(new_parts) != 2:
+        return ""
+    
+    old_time, old_weather = old_parts
+    new_time, new_weather = new_parts
+    
+    details = []
+    
+    # Weather change details
+    if old_weather != new_weather:
+        weather_details = {
+            ("sereno", "pioggia"): "L'odore di terra bagnata inizia a diffondersi nell'aria.",
+            ("pioggia", "sereno"): "L'odore di foglie bagnate è più forte adesso, trattenuto dal terreno umido.",
+            ("sereno", "nebbia"): "Un velo sottile di umidità imperlina le superfici vicine.",
+            ("nebbia", "sereno"): "La brezza leggera porta via gli ultimi vapori, rivelando dettagli prima nascosti.",
+            ("nuvoloso", "pioggia"): "Le prime gocce hanno risvegliato i profumi sopiti del sottobosco.",
+            ("pioggia", "nebbia"): "Il vapore si alza dal terreno ancora umido, creando arabeschi nell'aria."
+        }
+        detail = weather_details.get((old_weather, new_weather))
+        if detail:
+            details.append(detail)
+    
+    # Time change details  
+    if old_time != new_time:
+        time_details = {
+            ("notte", "mattina"): "I primi raggi filtrano tra le fronde, accendendo riflessi dorati sulle gocce di rugiada.",
+            ("mattina", "giorno"): "La luce si fa più intensa e i colori sembrano più saturi e vividi.",
+            ("giorno", "sera"): "Le ombre si allungano e i toni si fanno più caldi e avvolti.",
+            ("sera", "notte"): "L'oscurità rivela suoni prima nascosti nel frastuono diurno.",
+            ("notte", "giorno"): "Il contrasto tra buio e luce piena fa emergere dettagli prima invisibili.",
+            ("giorno", "notte"): "Il silenzio notturno amplifica ogni minimo fruscio e movimento."
+        }
+        detail = time_details.get((old_time, new_time))
+        if detail:
+            details.append(detail)
+    
+    return " ".join(details)
+
 def _ambient_line(state: GameState, micro: MicroRoom | None = None) -> str | None:
     """Restituisce una linea ambientale opzionale.
 
@@ -78,10 +125,31 @@ def _ambient_line(state: GameState, micro: MicroRoom | None = None) -> str | Non
       ``state.ambient_min_gap_minutes`` minuti simulati.
     - Indoor sotto la pioggia: se l'area ha tag indoor/shelter e il meteo è
       pioggia, usa snippet attenuati (chiave 'indoor_pioggia').
+    - Rare ambient lines: occasionalmente mostra linee poetiche rare da strings.json
     """
     total_minutes = state.day_count * 24 * 60 + state.time_minutes
     if total_minutes - state.last_ambient_emit_total < state.ambient_min_gap_minutes:
         return None
+    
+    # Check for rare ambient lines during "long silence" (longer gap periods)
+    long_silence_threshold = state.ambient_min_gap_minutes * 3
+    if total_minutes - state.last_ambient_emit_total >= long_silence_threshold:
+        rare_chance = 0.15  # 15% chance for rare lines during long silence
+        if random.random() < rare_chance:
+            try:
+                # Try to load rare ambient lines from strings.json
+                import json
+                with open("assets/strings.json", "r", encoding="utf-8") as f:
+                    strings_data = json.load(f)
+                rare_lines = strings_data.get("ambient_lines_rare", {}).get("lines", [])
+                if rare_lines:
+                    choice = random.choice(rare_lines)
+                    state.last_ambient_line = choice
+                    state.last_ambient_emit_total = total_minutes
+                    return choice
+            except Exception:
+                pass  # Fall back to regular ambient lines
+    
     daytime = state.daytime
     weather = state.weather
     options: list[str] = []
@@ -398,12 +466,17 @@ def look(state: GameState, registry: ContentRegistry) -> Dict[str, object]:
     if first_visit:
         core_text = dynamic_desc
     else:
-        # Se firma cambiata (meteo/ora), mostra una descrizione intermedia
+        # Se firma cambiata (meteo/ora), mostra una descrizione intermedia + dettaglio nuovo
         if last_sig != signature:
             # Estraggo solo le varianti (differenza) per enfatizzare cambiamento
             base = registry.get_area_description(micro.id)
             variation_part = dynamic_desc[len(base):].strip() if dynamic_desc.startswith(base) else dynamic_desc
             core_text = f"{registry.get_area_name(micro.id)} — {variation_part}".strip()
+            
+            # Add new weather/time detail as requested
+            new_detail = _get_environmental_detail(state, last_sig, signature)
+            if new_detail:
+                core_text += f" {new_detail}"
         else:
             core_text = registry.get_area_name(micro.id)
     ambient_extra = _ambient_line(state, micro) if not first_visit else None
@@ -509,6 +582,11 @@ def look(state: GameState, registry: ContentRegistry) -> Dict[str, object]:
     memory_messages = maybe_trigger_memory(state, "look", state.location_key())
     if memory_messages:
         lines.extend([""] + memory_messages)
+    
+    # Update quest progress
+    quest_messages = quests.quest_manager.update_quest_progress(state)
+    if quest_messages:
+        lines.extend([""] + quest_messages)
     
     return {
         "lines": lines,
@@ -1232,6 +1310,109 @@ def say(state: GameState, registry: ContentRegistry, message: str) -> Dict[str, 
         "changes": {"dialogue_turn": message}
     }
 
+
+def end_conversation(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """End current conversation."""
+    if not hasattr(state, 'active_conversation') or state.active_conversation is None:
+        return {"lines": ["Non stai parlando con nessuno."], 
+                "hints": [], "events_triggered": [], "changes": {}}
+    
+    if not hasattr(registry, 'npc_registry') or registry.npc_registry is None:
+        return {"lines": ["Sistema NPC non disponibile."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    conversation = state.active_conversation
+    npc = registry.npc_registry.get_npc(conversation['npc_id'])
+    
+    if npc is None:
+        state.active_conversation = None
+        return {"lines": ["L'NPC non è più disponibile."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    dialogue_engine = conversation['engine']
+    context = conversation['context']
+    
+    end_result = dialogue_engine.end_conversation(npc, context)
+    state.active_conversation = None
+    
+    return {
+        "lines": end_result['lines'],
+        "hints": end_result.get('hints', []),
+        "events_triggered": [],
+        "changes": {"conversation_ended": npc.id}
+    }
+
+
+def profile(state: GameState, registry: ContentRegistry, npc_name: str = None) -> Dict[str, Any]:
+    """Show profile of an NPC."""
+    if npc_name is None:
+        # Show profile of currently active conversation NPC
+        if not hasattr(state, 'active_conversation') or state.active_conversation is None:
+            return {"lines": ["Usa 'profile <nome>' per vedere il profilo di un NPC specifico."], 
+                    "hints": [], "events_triggered": [], "changes": {}}
+        
+        conversation = state.active_conversation
+        npc = registry.npc_registry.get_npc(conversation['npc_id'])
+        
+        if npc is None:
+            return {"lines": ["L'NPC della conversazione corrente non è più disponibile."], 
+                    "hints": [], "events_triggered": [], "changes": {}}
+        
+        dialogue_engine = conversation['engine']
+        context = conversation['context']
+        
+        result = dialogue_engine.get_npc_profile(npc, context)
+        return {
+            "lines": result['lines'],
+            "hints": result['hints'],
+            "events_triggered": [],
+            "changes": {"viewed_profile": npc.id}
+        }
+    
+    # Find specific NPC
+    if not hasattr(registry, 'npc_registry') or registry.npc_registry is None:
+        return {"lines": ["Sistema NPC non disponibile."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    current_location = state.location_key()
+    parts = current_location.split(":")
+    if len(parts) != 2:
+        return {"lines": ["Errore nella posizione corrente."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    macro_id, micro_id = parts
+    talkable_npcs = registry.npc_registry.get_talkable_npcs(macro_id, micro_id)
+    
+    target_npc = None
+    for npc in talkable_npcs:
+        if npc.name.lower() == npc_name.lower() or npc.id.lower() == npc_name.lower():
+            target_npc = npc
+            break
+    
+    if target_npc is None:
+        return {"lines": [f"Non riesco a trovare {npc_name} qui."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    # Create temporary dialogue engine and context for profile
+    from .npc.dialogue import AIDialogueEngine
+    from .npc.models import DialogueContext
+    
+    dialogue_engine = AIDialogueEngine()
+    context = DialogueContext(
+        npc_id=target_npc.id,
+        player_name="Giocatore",
+        current_location=current_location,
+        game_time=str(state.time_minutes),
+        weather=state.weather,
+        recent_events=[],
+        relationship_status=target_npc.relationship,
+        npc_mood=target_npc.mood,
+        conversation_history=[]
+    )
+    
+    result = dialogue_engine.get_npc_profile(target_npc, context)
+    return {
+        "lines": result['lines'],
+        "hints": result['hints'],
+        "events_triggered": [],
+        "changes": {"viewed_profile": target_npc.id}
+    }
+
 # --- Save/Load System ---
 
 def save_game(state: GameState, registry: ContentRegistry, slot_name: str = "quicksave") -> Dict[str, Any]:
@@ -1569,5 +1750,180 @@ def memories(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
         "hints": [],
         "events_triggered": [],
         "changes": {"memory_count": len(state.memory_fragments)}
+    }
+
+
+def journal(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """Show quest journal with active missions."""
+    journal_lines = quests.quest_manager.get_quest_journal(state)
+    
+    return {
+        "lines": journal_lines,
+        "hints": [],
+        "events_triggered": [],
+        "changes": {"viewed_journal": True}
+    }
+
+
+def start_microquest(state: GameState, registry: ContentRegistry, quest_id: str = "knife_and_rain") -> Dict[str, Any]:
+    """Start a specific micro-quest."""
+    if quests.quest_manager.start_quest(quest_id, state):
+        quest = quests.quest_manager.quests.get(quest_id)
+        if quest:
+            first_step = quest.get_current_step()
+            if first_step:
+                is_night = state.daytime == "notte"
+                step_desc = first_step.get_description(is_night)
+                return {
+                    "lines": [
+                        f"*** Nuova Missione: {quest.name} ***",
+                        quest.description,
+                        "",
+                        f"Primo obiettivo: {step_desc}"
+                    ],
+                    "hints": ["Usa 'journal' per vedere i tuoi obiettivi attuali."],
+                    "events_triggered": [],
+                    "changes": {"quest_started": quest_id}
+                }
+        
+        return {
+            "lines": [f"Missione '{quest_id}' avviata."],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"quest_started": quest_id}
+        }
+    else:
+        return {
+            "lines": [f"Impossibile avviare la missione '{quest_id}'. Potrebbe essere già attiva o completata."],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {}
+        }
+
+
+def craft(state: GameState, registry: ContentRegistry, recipe_name: str) -> Dict[str, Any]:
+    """Craft an item using a recipe (simplified version for bandage quest)."""
+    # Simple quest-specific crafting
+    if recipe_name.lower() == "bandage":
+        # For quest purposes, assume player has cloth
+        state.flags["has_cloth_for_quest"] = True  # Simulate finding cloth
+        state.flags["crafted_first_bandage"] = True
+        
+        return {
+            "lines": [
+                "Hai raccolto alcuni stracci e li hai trasformati in un bendaggio rudimentale.",
+                "Il bendaggio potrebbe tornare utile per curare ferite.",
+                "** Obiettivo completato: Crea Bendaggio **"
+            ],
+            "hints": ["Il bendaggio è pronto. Ora dovresti esplorare per trovare qualcuno che potrebbe aver bisogno di aiuto."],
+            "events_triggered": [],
+            "changes": {"crafted": "bandage"}
+        }
+    
+    return {"lines": [f"Non sai come creare '{recipe_name}'."], "hints": [], "events_triggered": [], "changes": {}}
+
+
+def encounter_wounded_wanderer(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """Trigger the wounded wanderer encounter for the micro-quest."""
+    if state.flags.get("encountered_wounded_wanderer"):
+        return {"lines": ["Hai già incontrato il vagante ferito."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    # Start the encounter
+    state.flags["encountered_wounded_wanderer"] = True
+    
+    is_night = state.daytime == "notte"
+    
+    if is_night:
+        encounter_text = [
+            "Nel buio, senti i gemiti sommessi di qualcuno in difficoltà.",
+            "Avvicinandoti cautamente, scorgi la sagoma di un vagante ferito, accasciato contro un albero.",
+            "Le sue ferite sembrano gravi e ha bisogno di aiuto immediato.",
+            "È il momento di decidere come agire..."
+        ]
+    else:
+        encounter_text = [
+            "Davanti a te appare un vagante visibilmente ferito, che si trascina a fatica.",
+            "Il sangue macchia i suoi vestiti strappati e il suo sguardo è quello di chi ha perso ogni speranza.",
+            "Si ferma vedendoti, il respiro affannoso mentre ti fissa con occhi supplici.",
+            "È il momento di decidere come agire..."
+        ]
+    
+    return {
+        "lines": encounter_text,
+        "hints": ["La tua prossima azione determinerà l'esito di questo incontro."],
+        "events_triggered": [],
+        "changes": {"encounter_triggered": "wounded_wanderer"}
+    }
+
+
+def help_wounded_npc(state: GameState, registry: ContentRegistry, protect_in_qte: bool = True) -> Dict[str, Any]:
+    """Final step of micro-quest: help NPC and get rewards based on QTE choice."""
+    if not state.flags.get("encountered_wounded_wanderer"):
+        return {"lines": ["Non hai ancora incontrato il vagante ferito."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    # Complete the quest
+    state.flags["knife_rain_quest_completed"] = True
+    
+    # Apply rewards
+    current_morale = state.flags.get("morale", 50)
+    morale_bonus = 10
+    
+    is_night = state.daytime == "notte"
+    
+    if protect_in_qte:
+        # Player chose to protect NPC during QTE
+        morale_bonus += 5
+        trust_bonus = True
+        
+        if is_night:
+            outcome_text = [
+                "Nonostante l'oscurità e la confusione, sei riuscito a proteggere l'NPC ferito.",
+                "Il tuo gesto coraggioso non è passato inosservato.",
+                "Il vagante ti ringrazia con gli occhi lucidi: 'Non dimenticherò mai quello che hai fatto per me.'",
+                f"Ti senti più sicuro di te stesso. (Morale +{morale_bonus})"
+            ]
+        else:
+            outcome_text = [
+                "Alla luce del giorno, il tuo intervento è stato decisivo e tempestivo.",
+                "Hai dimostrato grande coraggio e compassione proteggendo chi aveva bisogno.",
+                "Il vagante ferito ti guarda con riconoscenza: 'Sei una persona speciale. Grazie.'",
+                f"La tua autostima cresce notevolmente. (Morale +{morale_bonus})"
+            ]
+    else:
+        # Player chose not to protect or failed QTE
+        trust_bonus = False
+        
+        if is_night:
+            outcome_text = [
+                "Nell'oscurità, la situazione è sfuggita di mano rapidamente.",
+                "Non sei riuscito ad aiutare il vagante come avresti voluto.",
+                "Il ferito ti guarda con delusione prima di allontanarsi zoppicando.",
+                f"L'esperienza ti ha comunque insegnato qualcosa. (Morale +{morale_bonus})"
+            ]
+        else:
+            outcome_text = [
+                "Nonostante la luce del giorno, non sei riuscito a gestire al meglio la situazione.",
+                "Il tuo esitare ha avuto conseguenze per il vagante ferito.",
+                "Vedi la delusione nei suoi occhi mentre si allontana lentamente.",
+                f"Rifletti su come avresti potuto fare meglio. (Morale +{morale_bonus})"
+            ]
+    
+    # Apply morale bonus
+    state.flags["morale"] = min(100, current_morale + morale_bonus)
+    
+    # Set completion flag
+    state.flags["completed_first_microquest"] = True
+    
+    if trust_bonus:
+        state.flags["npc_trust_bonus"] = True
+    
+    outcome_text.append("")
+    outcome_text.append("*** Missione 'Il coltello e la pioggia' completata! ***")
+    
+    return {
+        "lines": outcome_text,
+        "hints": ["Usa 'journal' per vedere se ci sono altre missioni disponibili."],
+        "events_triggered": [],
+        "changes": {"quest_completed": "knife_and_rain", "morale_gained": morale_bonus}
     }
 

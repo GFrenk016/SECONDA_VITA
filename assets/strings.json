@@ -45,6 +45,21 @@
       "descrizione": "Un piccolo intreccio di radici essiccate che forma un nodo quasi regolare. Emana una lieve sensazione di calore quando la notte è profonda."
     }
   },
+  "ambient_lines_rare": {
+    "weight": 0.05,
+    "lines": [
+      "Il tempo sembra sospendersi, come se il bosco trattenesse il respiro in attesa di qualcosa di importante.",
+      "Un profumo antico e dimenticato aleggia nell'aria, evocando memorie di ere perdute.",
+      "Le ombre si muovono in modo strano, quasi danzando a un ritmo che solo la natura conosce.",
+      "Un sussurro melodioso si libra tra le fronde, portando parole in una lingua che il cuore comprende ma la mente non ricorda.",
+      "La luce filtra attraverso le foglie creando simboli effimeri sul terreno, messaggi scritti in un alfabeto di luce e ombra.",
+      "Il silenzio si fa così profondo che riesci a sentire il battito lento e antico del cuore stesso del bosco.",
+      "Un fremito attraversa l'aria, come se il mondo stesso stesse sognando e tu fossi parte di quel sogno.",
+      "Le stelle sembrano più vicine qui, come se i confini tra terra e cielo si facessero sottili e permeabili.",
+      "Un ricordo che non è tuo affiora brevemente: alberi che cantano, pietre che parlano, un tempo in cui tutto era connesso.",
+      "Il vento porta echi di risate lontane e antiche, di tempi in cui il bosco era giovane e il mondo era diverso."
+    ]
+  },
   "aree": {
     "limite_sentiero": {
       "nome": "Limite del Sentiero",

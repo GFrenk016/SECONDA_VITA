@@ -1,0 +1,212 @@
+{
+  "ambient_events": [
+    {
+      "id": "forest_bird_call",
+      "name": "Richiamo Aviario",
+      "description": "Un canto melodioso echeggia tra gli alberi",
+      "conditions": [
+        {
+          "type": "location_contains",
+          "key": "fronte_bosco"
+        },
+        {
+          "type": "daytime",
+          "key": "mattina"
+        }
+      ],
+      "messages": [
+        "Il trillo dolce di un pettirosso risuona tra i rami.",
+        "Un canto acuto trafigge il silenzio del bosco.",
+        "Gli uccelli si rispondono da ramo a ramo in un coro mattutino."
+      ],
+      "frequency": 15,
+      "chance": 0.3
+    },
+    {
+      "id": "night_forest_sounds",
+      "name": "Suoni Notturni",
+      "description": "I misteri della notte si manifestano attraverso suoni inquietanti",
+      "conditions": [
+        {
+          "type": "location_contains", 
+          "key": "fronte_bosco"
+        },
+        {
+          "type": "daytime",
+          "key": "notte"
+        }
+      ],
+      "messages": [
+        "Un ramo scricchiola nel buio, seguito da un fruscio di foglie.",
+        "Passi leggeri echeggiano da qualche parte tra gli alberi.",
+        "Un ululato lontano risuona nelle profondità del bosco.",
+        "Il vento porta con sé sussurri appena percettibili."
+      ],
+      "frequency": 20,
+      "chance": 0.4
+    },
+    {
+      "id": "mystical_presence",
+      "name": "Presenza Mistica",
+      "description": "Sensazioni di presenza soprannaturale",
+      "conditions": [
+        {
+          "type": "flag",
+          "key": "forest_connection"
+        },
+        {
+          "type": "location",
+          "key": "fronte_bosco:limite_sentiero"
+        }
+      ],
+      "messages": [
+        "Senti una presenza antica che ti osserva dai recessi del bosco.",
+        "L'aria si fa più densa, carica di un'energia primordiale.",
+        "I simboli del cippo sembrano brillare debolmente per un istante."
+      ],
+      "frequency": 30,
+      "chance": 0.2
+    },
+    {
+      "id": "weather_change_hints",
+      "name": "Presagi Meteorologici",
+      "description": "Segnali di cambiamento del tempo",
+      "conditions": [
+        {
+          "type": "weather",
+          "key": "sereno"
+        }
+      ],
+      "messages": [
+        "Piccole nuvole iniziano a raccogliersi all'orizzonte.",
+        "Il vento cambia direzione, portando nuovi profumi.",
+        "L'umidità nell'aria sembra aumentare lentamente."
+      ],
+      "frequency": 45,
+      "chance": 0.15,
+      "effects": [
+        {
+          "type": "weather_hint",
+          "target": "nuvoloso"
+        }
+      ]
+    },
+    {
+      "id": "memory_triggers",
+      "name": "Frammenti di Memoria",
+      "description": "Ricordi del protagonista emergono spontaneamente",
+      "conditions": [
+        {
+          "type": "day_count",
+          "value": 1
+        }
+      ],
+      "messages": [
+        "Un profumo familiare risveglia un ricordo sepolto nel profondo della mente.",
+        "Per un istante, ti sembra di riconoscere questo posto da qualche parte nel passato.",
+        "Una sensazione di déjà vu ti colpisce improvvisamente."
+      ],
+      "frequency": 60,
+      "chance": 0.1,
+      "effects": [
+        {
+          "type": "trigger_memory_check"
+        }
+      ]
+    },
+    {
+      "id": "forest_mood_changes",
+      "name": "Cambiamenti d'Atmosfera",
+      "description": "L'atmosfera del bosco cambia in base alle azioni del giocatore",
+      "conditions": [
+        {
+          "type": "location_contains",
+          "key": "fronte_bosco"
+        }
+      ],
+      "messages": [
+        "Il bosco sembra reagire alla tua presenza in modo quasi impercettibile.",
+        "Hai la sensazione che le piante e gli alberi ti stiano osservando.",
+        "L'energia del luogo cambia sottilmente mentre ti muovi."
+      ],
+      "frequency": 25,
+      "chance": 0.25,
+      "conditional_messages": {
+        "respectful_explorer": [
+          "Il bosco ti accoglie con una calma serena, come se approvasse la tua presenza.",
+          "Gli alberi sembrano inclinarsi leggermente in segno di rispetto."
+        ],
+        "bold_explorer": [
+          "Il bosco vibra di un'energia più intensa, stimolato dalla tua audacia.",
+          "I suoni intorno a te si fanno più vividi e definiti."
+        ],
+        "cautious_demeanor": [
+          "La prudenza che mostri sembra rassicurare gli spiriti del bosco.",
+          "Un senso di protezione ti avvolge mentre procedi con cautela."
+        ]
+      }
+    }
+  ],
+  "time_events": [
+    {
+      "id": "hourly_forest_pulse",
+      "name": "Pulsazione del Bosco",
+      "description": "Eventi che si verificano ogni ora nel bosco",
+      "frequency": 60,
+      "conditions": [
+        {
+          "type": "location_contains",
+          "key": "fronte_bosco"
+        }
+      ],
+      "effects": [
+        {
+          "type": "check_ambient_events"
+        }
+      ]
+    },
+    {
+      "id": "dawn_forest_awakening",
+      "name": "Risveglio dell'Alba",
+      "description": "Evento speciale all'alba",
+      "trigger_time": "06:00",
+      "conditions": [
+        {
+          "type": "location_contains",
+          "key": "fronte_bosco"
+        }
+      ],
+      "messages": [
+        "Il bosco si risveglia con i primi raggi di sole. Gli uccelli iniziano il loro coro mattutino.",
+        "La rugiada scintilla sui rami mentre il mondo si desta dal sonno della notte."
+      ]
+    },
+    {
+      "id": "midnight_forest_mystery",
+      "name": "Mistero di Mezzanotte",
+      "description": "Evento speciale a mezzanotte",
+      "trigger_time": "00:00",
+      "conditions": [
+        {
+          "type": "location_contains",
+          "key": "fronte_bosco"
+        },
+        {
+          "type": "flag",
+          "key": "forest_connection"
+        }
+      ],
+      "messages": [
+        "Nel cuore della notte, il bosco rivela i suoi segreti più profondi.",
+        "Una luce eterea danza tra gli alberi per pochi istanti, poi svanisce."
+      ],
+      "effects": [
+        {
+          "type": "set_flag",
+          "key": "midnight_vision",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

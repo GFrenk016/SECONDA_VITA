@@ -1,0 +1,78 @@
+{
+  "templates": [
+    {
+      "id": "SIDE_FETCH_RAIN",
+      "title": "Tra fango e ruggine",
+      "base_weight": 1.0,
+      "when": {
+        "weather_in": {"any": ["pioggia", "storm"]}
+      },
+      "goals": [
+        {
+          "type": "collect",
+          "item": "metal_scrap",
+          "qty": 2,
+          "area": {"world": "overworld", "macro": "yard"}
+        }
+      ],
+      "rewards": {
+        "items": [{"id": "adhesive", "qty": 1}],
+        "stats": {"morale": 2}
+      },
+      "weights": {
+        "night": 1.5,
+        "day": 1.0,
+        "pioggia": 2.0
+      }
+    },
+    {
+      "id": "SIDE_RESCUE_CHILD",
+      "title": "Il pianto tra gli alberi",
+      "base_weight": 1.2,
+      "when": {
+        "time_between": {"start": "18:00", "end": "22:00"}
+      },
+      "goals": [
+        {
+          "type": "escort",
+          "npc": "lost_child",
+          "to": {"world": "camp"}
+        }
+      ],
+      "rewards": {
+        "relation": {"clementine.trust": 2},
+        "stats": {"morale": 5}
+      },
+      "weights": {
+        "night": 2.0,
+        "day": 0.5,
+        "high_morale": 1.5
+      }
+    },
+    {
+      "id": "SIDE_NIGHT_SALVAGE",
+      "title": "Recupero notturno",
+      "base_weight": 0.8,
+      "when": {
+        "time_between": {"start": "22:00", "end": "06:00"}
+      },
+      "goals": [
+        {
+          "type": "collect",
+          "item": "battery",
+          "qty": 1,
+          "area": {"world": "overworld", "macro": "ruins"}
+        }
+      ],
+      "rewards": {
+        "items": [{"id": "flashlight", "qty": 1}],
+        "stats": {"morale": 3}
+      },
+      "weights": {
+        "night": 3.0,
+        "sereno": 1.2,
+        "low_morale": 0.5
+      }
+    }
+  ]
+}

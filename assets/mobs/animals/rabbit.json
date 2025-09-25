@@ -1,0 +1,36 @@
+{
+  "id": "rabbit",
+  "name": "Coniglio",
+  "hp": 2,
+  "attack": 0,
+  "attack_variance": 0,
+  "max_stamina": 20,
+  "max_posture": 15.0,
+  "stagger_threshold": 0.1,
+  "weapon_handling": 0.0,
+  "resistances": {
+    "blunt": 1.3,
+    "slash": 1.1,
+    "pierce": 1.0,
+    "bleed": 0.9,
+    "burn": 1.4,
+    "shock": 1.2
+  },
+  "ai_state": "passive",
+  "ai_traits": {
+    "flees_immediately": true,
+    "small_prey": true,
+    "fear_threshold": 1.0
+  },
+  "behavior": "passive_prey",
+  "flee_chance": 0.9,
+  "qte_chance": 0.1,
+  "qte_window_minutes": 1,
+  "qte_prompts": [
+    {"part": "salto", "prompt": "Anticipa il salto! (S)", "expected": "s", "effect": "prevent_escape"}
+  ],
+  "loot": [
+    {"item": "carne_cruda", "chance": 0.7, "quantity": 1},
+    {"item": "pelliccia_piccola", "chance": 0.6, "quantity": 1}
+  ]
+}

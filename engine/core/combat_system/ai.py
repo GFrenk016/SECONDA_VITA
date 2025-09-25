@@ -49,6 +49,12 @@ class TacticalAI:
             return self._choose_cautious_move(entity_id, viable_moves, targets, situation, traits)
         elif ai_state == AIState.PACK:
             return self._choose_pack_move(entity_id, viable_moves, targets, situation, traits)
+        elif ai_state == AIState.PASSIVE:
+            return self._choose_passive_move(entity_id, viable_moves, targets, situation, traits)
+        elif ai_state == AIState.SURRENDERED:
+            return self._choose_surrendered_move(entity_id, viable_moves, targets, situation, traits)
+        elif ai_state == AIState.FLEEING:
+            return self._choose_fleeing_move(entity_id, viable_moves, targets, situation, traits)
         
         # Fallback: random choice
         return random.choice(viable_moves)
@@ -210,3 +216,91 @@ class TacticalAI:
         # Sort by score (highest first)
         target_scores.sort(key=lambda x: x[1], reverse=True)
         return [target_id for target_id, _ in target_scores]
+    
+    def _choose_passive_move(self, entity_id: str, moves: List[MoveSpec], targets: List[str], 
+                            situation: Dict[str, Any], traits: Dict[str, Any]) -> MoveSpec:
+        """Choose move for passive AI - animals or non-aggressive mobs."""
+        # Check if we should flee based on traits
+        if traits.get('flees_when_hurt', False):
+            my_posture_ratio = self.posture.get_posture_ratio(entity_id)
+            if my_posture_ratio < 0.7:  # Flee if hurt
+                # Transition to fleeing state
+                self._ai_states[entity_id] = AIState.FLEEING
+                return self._choose_fleeing_move(entity_id, moves, targets, situation, traits)
+        
+        # Passive mobs don't initiate attacks, only defensive moves
+        defensive_moves = [m for m in moves if m.move_type in ['parry', 'dodge']]
+        if defensive_moves:
+            return min(defensive_moves, key=lambda m: m.stamina_cost)
+        
+        # If no defensive moves available, use lightest attack (reluctant defense)
+        light_moves = [m for m in moves if m.move_type == 'light']
+        if light_moves:
+            return min(light_moves, key=lambda m: m.damage_base)
+        
+        # Fallback: any available move with lowest damage
+        return min(moves, key=lambda m: m.damage_base)
+    
+    def _choose_surrendered_move(self, entity_id: str, moves: List[MoveSpec], targets: List[str], 
+                                situation: Dict[str, Any], traits: Dict[str, Any]) -> MoveSpec:
+        """Choose move for surrendered AI - humans who have given up."""
+        # Surrendered entities only use defensive moves or try to flee
+        # They won't attack unless cornered
+        if traits.get('cornered', False):
+            # Desperate last resort
+            desperate_moves = [m for m in moves if m.move_type in ['light', 'thrust']]
+            if desperate_moves:
+                return min(desperate_moves, key=lambda m: m.stamina_cost)
+        
+        # Normal surrender behavior: only defensive actions
+        defensive_moves = [m for m in moves if m.move_type in ['parry', 'dodge']]
+        if defensive_moves:
+            return min(defensive_moves, key=lambda m: m.stamina_cost)
+        
+        # If desperate and no defense available, weakest attack
+        return min(moves, key=lambda m: m.damage_base)
+    
+    def _choose_fleeing_move(self, entity_id: str, moves: List[MoveSpec], targets: List[str], 
+                            situation: Dict[str, Any], traits: Dict[str, Any]) -> MoveSpec:
+        """Choose move for fleeing AI - trying to escape."""
+        # Fleeing entities prioritize evasion and movement
+        evasive_moves = [m for m in moves if m.move_type in ['dodge', 'light']]
+        if evasive_moves:
+            # Choose based on speed/evasion rather than damage
+            return min(evasive_moves, key=lambda m: m.recovery_time)
+        
+        # If cornered, might fight back desperately
+        if len(targets) > 2 or traits.get('cornered', False):
+            # Transition back to cautious if completely surrounded
+            self._ai_states[entity_id] = AIState.CAUTIOUS
+            return self._choose_cautious_move(entity_id, moves, targets, situation, traits)
+        
+        # Default: lowest commitment move to maintain mobility
+        return min(moves, key=lambda m: (m.stamina_cost + m.recovery_time))
+    
+    def check_passive_state_changes(self, entity_id: str, traits: Dict[str, Any], situation: Dict[str, Any]):
+        """Check and handle state transitions for passive entities."""
+        current_state = self._ai_states.get(entity_id, AIState.PASSIVE)
+        
+        if current_state == AIState.PASSIVE:
+            # Check if should flee due to damage
+            if traits.get('flees_when_hurt', False):
+                my_posture_ratio = self.posture.get_posture_ratio(entity_id)
+                if my_posture_ratio < 0.5:
+                    self._ai_states[entity_id] = AIState.FLEEING
+                    return
+        
+        elif current_state == AIState.FLEEING:
+            # Check if safe to return to passive
+            my_posture_ratio = self.posture.get_posture_ratio(entity_id)
+            threat_level = len(situation.get('nearby_enemies', []))
+            
+            if my_posture_ratio > 0.8 and threat_level == 0:
+                self._ai_states[entity_id] = AIState.PASSIVE
+                return
+        
+        elif current_state == AIState.SURRENDERED:
+            # Surrendered entities might become cornered if pressed too hard
+            if situation.get('being_attacked', False) and traits.get('can_become_desperate', True):
+                # Mark as cornered for desperate behavior
+                traits['cornered'] = True

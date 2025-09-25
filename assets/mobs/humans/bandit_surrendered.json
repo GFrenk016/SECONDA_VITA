@@ -1,0 +1,53 @@
+{
+  "id": "bandit_surrendered",
+  "name": "Bandito Arreso",
+  "hp": 8,
+  "attack": 0,
+  "attack_variance": 0,
+  "max_stamina": 60,
+  "max_posture": 50.0,
+  "stagger_threshold": 0.35,
+  "weapon_handling": 0.6,
+  "resistances": {
+    "blunt": 0.9,
+    "slash": 0.9,
+    "pierce": 0.8,
+    "bleed": 1.0,
+    "burn": 1.0,
+    "shock": 0.8
+  },
+  "ai_state": "surrendered",
+  "ai_traits": {
+    "surrendered": true,
+    "dangerous_if_freed": true,
+    "has_information": true
+  },
+  "behavioral_traits": {
+    "can_negotiate": true,
+    "surrender_complete": true,
+    "has_hidden_weapon": true,
+    "hidden_weapon_damage": 6,
+    "has_personal_story": true,
+    "becomes_hostile_on_failed_negotiation": false
+  },
+  "behavior": "passive_criminal",
+  "flee_chance": 0.4,
+  "qte_chance": 0.4,
+  "qte_window_minutes": 3,
+  "qte_prompts": [
+    {"part": "offerta", "prompt": "Ascolta l'offerta (A) o Rifiuta (R)", "expected": "a", "effect": "information"},
+    {"part": "inganno", "prompt": "Riconosci l'inganno! (I)", "expected": "i", "effect": "prevent_trick"}
+  ],
+  "negotiation_outcomes": [
+    {"success": true, "message": "Accetta di andarsene e ti offre informazioni preziose.", "loot": "mappa_tesoro"},
+    {"success": true, "message": "Si allontana rapidamente senza fare resistenza.", "loot": null},
+    {"success": false, "message": "Scuote la testa e si irrigidisce, preparandosi a fuggire.", "loot": null}
+  ],
+  "loot_table": [
+    {"item": "arma_nascosta", "chance": 0.5, "quantity": 1},
+    {"item": "mappa_tesoro", "chance": 0.3, "quantity": 1},
+    {"item": "munizioni", "chance": 0.6, "quantity": 5}
+  ],
+  "moral_choice": true,
+  "can_provide_information": true
+}

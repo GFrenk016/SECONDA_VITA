@@ -171,6 +171,191 @@
       "value": 30,
       "tags": ["medical", "rare"],
       "description": "A potent antidote that cures poison and provides temporary immunity."
+    },
+    {
+      "id": "straccio",
+      "name": "Straccio",
+      "type": "material",
+      "weight": 0.1,
+      "stack_max": 10,
+      "value": 1,
+      "tags": ["common", "cloth"],
+      "description": "Un pezzo di tessuto logoro e sporco, ma ancora utilizzabile per riparazioni."
+    },
+    {
+      "id": "ossa",
+      "name": "Ossa",
+      "type": "material", 
+      "weight": 0.3,
+      "stack_max": 5,
+      "value": 3,
+      "tags": ["bone", "crafting"],
+      "description": "Ossa di creature, utili per creare strumenti o decorazioni."
+    },
+    {
+      "id": "pelliccia",
+      "name": "Pelliccia",
+      "type": "material",
+      "weight": 0.8,
+      "stack_max": 3,
+      "value": 12,
+      "tags": ["fur", "warm", "crafting"],
+      "description": "Pelliccia di lupo, calda e resistente. Ottima per protezione dal freddo."
+    },
+    {
+      "id": "zanna",
+      "name": "Zanna di Lupo",
+      "type": "material",
+      "weight": 0.2,
+      "stack_max": 4,
+      "value": 8,
+      "tags": ["bone", "sharp", "trophy"],
+      "description": "Una zanna affilata di lupo, potrebbe essere usata per creare armi o come trofeo."
+    },
+    {
+      "id": "carne_cruda",
+      "name": "Carne Cruda",
+      "type": "consumable",
+      "weight": 0.4,
+      "stack_max": 10,
+      "value": 3,
+      "tags": ["food", "raw", "perishable"],
+      "description": "Carne fresca da animale selvatico. Deve essere cucinata prima del consumo.",
+      "effects": [{"heal": 5, "requires_cooking": true}]
+    },
+    {
+      "id": "pelle",
+      "name": "Pelle di Cervo",
+      "type": "material",
+      "weight": 1.2,
+      "stack_max": 3,
+      "value": 15,
+      "tags": ["leather", "crafting", "warm"],
+      "description": "Pelle di cervo di alta qualità, perfetta per creare equipaggiamento protettivo."
+    },
+    {
+      "id": "corna",
+      "name": "Corna di Cervo",
+      "type": "material",
+      "weight": 0.8,
+      "stack_max": 2,
+      "value": 12,
+      "tags": ["bone", "hard", "crafting"],
+      "description": "Robuste corna di cervo, ottime per creare strumenti e armi."
+    },
+    {
+      "id": "pelliccia_piccola",
+      "name": "Pelliccia Piccola",
+      "type": "material",
+      "weight": 0.3,
+      "stack_max": 5,
+      "value": 5,
+      "tags": ["fur", "small", "warm"],
+      "description": "Piccola pelliccia soffice, utile per rivestimenti e riparazioni."
+    },
+    {
+      "id": "pelle_spessa",
+      "name": "Pelle Spessa",
+      "type": "material",
+      "weight": 2.0,
+      "stack_max": 2,
+      "value": 25,
+      "tags": ["leather", "thick", "armor"],
+      "description": "Pelle molto spessa e resistente, ideale per creare armature robuste."
+    },
+    {
+      "id": "zanna_cinghiale",
+      "name": "Zanna di Cinghiale",
+      "type": "material",
+      "weight": 0.4,
+      "stack_max": 4,
+      "value": 10,
+      "tags": ["bone", "sharp", "weapon"],
+      "description": "Zanna ricurva e affilata di cinghiale, perfetta per punte di lancia."
+    },
+    {
+      "id": "ossa_rotte",
+      "name": "Ossa Rotte",
+      "type": "material",
+      "weight": 0.2,
+      "stack_max": 8,
+      "value": 1,
+      "tags": ["bone", "broken", "poor"],
+      "description": "Ossa danneggiate e fratturate, di scarso valore ma comunque utilizzabili."
+    },
+    {
+      "id": "medicine_scadute",
+      "name": "Medicine Scadute",
+      "type": "consumable",
+      "weight": 0.3,
+      "stack_max": 3,
+      "value": 2,
+      "tags": ["medical", "expired", "risky"],
+      "description": "Medicinali oltre la data di scadenza. Effetti imprevedibili.",
+      "effects": [{"heal": 10, "chance_poison": 0.3}]
+    },
+    {
+      "id": "medicazioni",
+      "name": "Medicazioni",
+      "type": "consumable",
+      "weight": 0.2,
+      "stack_max": 5,
+      "value": 8,
+      "tags": ["medical", "bandage"],
+      "description": "Bende e garze sterili per curare ferite.",
+      "effects": [{"heal": 15, "stop_bleeding": true}]
+    },
+    {
+      "id": "foto_famiglia",
+      "name": "Foto di Famiglia",
+      "type": "quest",
+      "weight": 0.1,
+      "stack_max": 1,
+      "value": 0,
+      "tags": ["personal", "memory", "tragic"],
+      "description": "Una foto sbiadita di una famiglia felice. Ti fa riflettere sulla perdita."
+    },
+    {
+      "id": "cibo_in_scatola",
+      "name": "Cibo in Scatola",
+      "type": "consumable",
+      "weight": 0.6,
+      "stack_max": 8,
+      "value": 6,
+      "tags": ["food", "preserved", "reliable"],
+      "description": "Cibo conservato in lattina, ancora commestibile e nutriente.",
+      "effects": [{"restore": {"energy": 25}}]
+    },
+    {
+      "id": "arma_nascosta",
+      "name": "Arma Nascosta",
+      "type": "weapon",
+      "weight": 0.5,
+      "stack_max": 1,
+      "equip_slot": "main_hand",
+      "value": 20,
+      "tags": ["concealed", "surprise", "melee"],
+      "description": "Piccola arma da taglio nascosta, sorprendentemente affilata."
+    },
+    {
+      "id": "mappa_tesoro",
+      "name": "Mappa del Tesoro",
+      "type": "quest",
+      "weight": 0.1,
+      "stack_max": 1,
+      "value": 50,
+      "tags": ["map", "treasure", "valuable"],
+      "description": "Mappa che indica la posizione di un possibile tesoro nascosto."
+    },
+    {
+      "id": "munizioni",
+      "name": "Munizioni",
+      "type": "consumable",
+      "weight": 0.1,
+      "stack_max": 50,
+      "value": 2,
+      "tags": ["ammo", "weapon"],
+      "description": "Proiettili per armi da fuoco di vario calibro."
     }
   ]
 }

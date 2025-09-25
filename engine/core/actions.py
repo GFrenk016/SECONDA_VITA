@@ -500,6 +500,11 @@ def look(state: GameState, registry: ContentRegistry) -> Dict[str, object]:
         lines.extend([""] + state.pending_ambient_messages)
         state.pending_ambient_messages.clear()
     
+    # Check for pending loot messages
+    if hasattr(state, 'pending_loot_messages') and state.pending_loot_messages:
+        lines.extend([""] + state.pending_loot_messages)
+        state.pending_loot_messages.clear()
+    
     # Check for memory triggers
     memory_messages = maybe_trigger_memory(state, "look", state.location_key())
     if memory_messages:

@@ -1,0 +1,44 @@
+{
+  "id": "deer",
+  "name": "Cervo",
+  "hp": 4,
+  "attack": 0,
+  "attack_variance": 0,
+  "max_stamina": 40,
+  "max_posture": 30.0,
+  "stagger_threshold": 0.2,
+  "weapon_handling": 0.1,
+  "resistances": {
+    "blunt": 1.2,
+    "slash": 1.0,
+    "pierce": 0.9,
+    "bleed": 1.0,
+    "burn": 1.3,
+    "shock": 1.1
+  },
+  "ai_state": "passive",
+  "ai_traits": {
+    "flees_when_hurt": true,
+    "passive_prey": true,
+    "fear_threshold": 0.8
+  },
+  "behavioral_traits": {
+    "is_animal": true,
+    "flees_when_hurt": true,
+    "flee_chance": 0.7,
+    "moral_impact": "negative"
+  },
+  "behavior": "passive_prey",
+  "flee_chance": 0.7,
+  "qte_chance": 0.2,
+  "qte_window_minutes": 1,
+  "qte_prompts": [
+    {"part": "fuga", "prompt": "Blocca la fuga! (F)", "expected": "f", "effect": "prevent_escape"},
+    {"part": "corna", "prompt": "Evita le corna! (C)", "expected": "c", "effect": "reduce_next_damage"}
+  ],
+  "loot_table": [
+    {"item": "carne_cruda", "chance": 0.9, "quantity": 2},
+    {"item": "pelle", "chance": 0.8, "quantity": 1},
+    {"item": "corna", "chance": 0.3, "quantity": 1}
+  ]
+}

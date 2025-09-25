@@ -36,6 +36,9 @@ class AIState(Enum):
     AGGRESSIVE = "aggressive"
     CAUTIOUS = "cautious"
     PACK = "pack"
+    PASSIVE = "passive"
+    SURRENDERED = "surrendered"
+    FLEEING = "fleeing"
 
 
 @dataclass

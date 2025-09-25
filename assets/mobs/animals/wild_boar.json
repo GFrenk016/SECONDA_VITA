@@ -1,0 +1,39 @@
+{
+  "id": "wild_boar",
+  "name": "Cinghiale",
+  "hp": 10,
+  "attack": 3,
+  "attack_variance": 1,
+  "max_stamina": 100,
+  "max_posture": 80.0,
+  "stagger_threshold": 0.4,
+  "weapon_handling": 0.2,
+  "resistances": {
+    "blunt": 0.8,
+    "slash": 0.9,
+    "pierce": 1.0,
+    "bleed": 0.9,
+    "burn": 1.2,
+    "shock": 0.8
+  },
+  "ai_state": "defensive",
+  "ai_traits": {
+    "charges_when_threatened": true,
+    "territorial": true,
+    "becomes_aggressive": 0.5
+  },
+  "behavior": "defensive_animal",
+  "flee_chance": 0.3,
+  "qte_chance": 0.6,
+  "qte_window_minutes": 2,
+  "qte_prompts": [
+    {"part": "carica", "prompt": "Evita la carica! (A)", "expected": "a", "effect": "stagger"},
+    {"part": "zanne", "prompt": "Schiva le zanne! (Z)", "expected": "z", "effect": "reduce_next_damage"},
+    {"part": "intimidazione", "prompt": "Mantieni la calma! (M)", "expected": "m", "effect": "prevent_aggro"}
+  ],
+  "loot": [
+    {"item": "carne_cruda", "chance": 0.95, "quantity": 3},
+    {"item": "pelle_spessa", "chance": 0.8, "quantity": 1},
+    {"item": "zanna_cinghiale", "chance": 0.4, "quantity": 2}
+  ]
+}

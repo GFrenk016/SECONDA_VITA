@@ -1,0 +1,45 @@
+{
+  "id": "walker_wounded",
+  "name": "Vagante Ferito",
+  "hp": 3,
+  "attack": 1,
+  "attack_variance": 0,
+  "max_stamina": 30,
+  "max_posture": 25.0,
+  "stagger_threshold": 0.2,
+  "weapon_handling": 0.1,
+  "resistances": {
+    "blunt": 0.9,
+    "slash": 1.3,
+    "pierce": 1.0,
+    "bleed": 0.5,
+    "burn": 2.0,
+    "shock": 0.8
+  },
+  "ai_state": "surrendered",
+  "ai_traits": {
+    "barely_moving": true,
+    "surrendered": true,
+    "no_threat": true
+  },
+  "behavioral_traits": {
+    "surrender_complete": true,
+    "has_hidden_weapon": false,
+    "has_family_photo": true,
+    "can_negotiate": false
+  },
+  "behavior": "passive_surrender",
+  "flee_chance": 0.1,
+  "qte_chance": 0.1,
+  "qte_window_minutes": 3,
+  "qte_prompts": [
+    {"part": "gemito", "prompt": "Ignora il gemito! (I)", "expected": "i", "effect": "no_mercy"},
+    {"part": "sguardo", "prompt": "Evita lo sguardo! (E)", "expected": "e", "effect": "reduce_next_damage"}
+  ],
+  "loot_table": [
+    {"item": "straccio", "chance": 0.8, "quantity": 2, "captured_bonus": 3},
+    {"item": "ossa_rotte", "chance": 0.4, "quantity": 1},
+    {"item": "medicine_scadute", "chance": 0.2, "quantity": 1},
+    {"item": "foto_famiglia", "chance": 0.3, "quantity": 1}
+  ]
+}

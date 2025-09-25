@@ -644,10 +644,14 @@ def _choose_enemy_move(state: GameState, enemy_data: Dict[str, Any]) -> MoveSpec
     return chosen_move or enemy_moves[0]
 
 def _check_end(state: GameState):
-    """Check for combat end conditions."""
+    """Check for combat end conditions and handle loot drops."""
     s = state.combat_session
     if not s:
         return
+    
+    # Check for newly defeated enemies and handle loot drops
+    _handle_defeated_enemy_loot(state)
+    
     # Multi enemy: vittoria se tutti <=0
     all_dead = True
     for e in s.get('enemies', []):
@@ -673,6 +677,120 @@ def _check_end(state: GameState):
             'player_id': s.get('player_id', 'player'),
             'enemy_id': s['enemy_id']
         })
+
+def _handle_defeated_enemy_loot(state: GameState):
+    """Handle loot drops for recently defeated enemies."""
+    s = state.combat_session
+    if not s:
+        return
+    
+    # Track which enemies were already processed for loot
+    if not hasattr(s, 'loot_processed_enemies'):
+        s['loot_processed_enemies'] = set()
+    
+    enemies = s.get('enemies', [])
+    for enemy in enemies:
+        enemy_id = enemy['id']
+        
+        # Skip if already processed or still alive
+        if enemy_id in s['loot_processed_enemies'] or enemy['hp'] > 0:
+            continue
+            
+        # Mark as processed
+        s['loot_processed_enemies'].add(enemy_id)
+        
+        # Get enemy definition for loot table
+        enemy_base_id = enemy_id.split('_')[0] if '_' in enemy_id else enemy_id
+        enemy_def = MOBS.get(enemy_base_id)
+        
+        if not enemy_def or 'loot' not in enemy_def:
+            continue
+            
+        # Roll for loot drops
+        dropped_items = _roll_enemy_loot(enemy_def['loot'])
+        
+        if dropped_items:
+            # Add items to player inventory
+            _add_loot_to_inventory(state, dropped_items, enemy['name'])
+
+def _roll_enemy_loot(loot_table: list) -> list:
+    """Roll for loot drops based on enemy loot table."""
+    dropped_items = []
+    rng = _RNG or random
+    
+    for loot_entry in loot_table:
+        item_id = loot_entry.get('item')
+        chance = loot_entry.get('chance', 0.0)
+        quantity = loot_entry.get('quantity', 1)
+        
+        if not item_id:
+            continue
+            
+        # Roll for drop
+        if rng.random() <= chance:
+            dropped_items.append({
+                'id': item_id,
+                'quantity': quantity
+            })
+    
+    return dropped_items
+
+def _add_item_to_inventory(state: GameState, item_id: str, quantity: int = 1):
+    """Helper function to add items to player inventory."""
+    try:
+        from engine.core.actions import _get_player_inventory, _save_player_inventory
+        
+        player_inventory = _get_player_inventory(state)
+        success = player_inventory.add(item_id, quantity)
+        
+        if success:
+            _save_player_inventory(state, player_inventory)
+        
+        return success
+    except Exception as e:
+        print(f"Warning: Failed to add {item_id} to inventory: {e}")
+        return False
+
+def _add_loot_to_inventory(state: GameState, dropped_items: list, enemy_name: str):
+    """Add dropped loot to player inventory."""
+    try:
+        from engine.items import get_item_registry
+        
+        item_registry = get_item_registry()
+        loot_messages = []
+        
+        for item_drop in dropped_items:
+            item_id = item_drop['id']
+            quantity = item_drop.get('quantity', 1)
+            
+            # Check if item exists in registry
+            item_data = item_registry.get(item_id)
+            if not item_data:
+                continue
+                
+            item_name = item_data.get('name', item_id)
+            
+            # Add to inventory
+            success = _add_item_to_inventory(state, item_id, quantity)
+            
+            if success:
+                if quantity > 1:
+                    loot_messages.append(f"{item_name} x{quantity}")
+                else:
+                    loot_messages.append(item_name)
+        
+        if loot_messages:
+            # Store loot message for display
+            if not hasattr(state, 'pending_loot_messages'):
+                state.pending_loot_messages = []
+            
+            loot_text = f"Raccogli da {enemy_name}: {', '.join(loot_messages)}"
+            state.pending_loot_messages.append(loot_text)
+            
+    except Exception as e:
+        # Don't break combat flow if loot system fails
+        print(f"Warning: Loot system error: {e}")
+        pass
 
 # Nuovo: trigger QTE offensivo direttamente dopo un attacco player (realtime, niente fase enemy)
 def _maybe_trigger_offense_qte(state: GameState):
@@ -978,6 +1096,75 @@ def resolve_combat_action(state: GameState, registry: ContentRegistry, command: 
         lines.extend(_process_realtime_events(state))
         return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
 
+    # Special commands for passive mobs
+    if command.startswith('hunt') or command.startswith('capture') or command.startswith('negotiate'):
+        if s['phase'] != 'player':
+            raise CombatError('Non è il tuo turno.')
+        
+        # Get target enemy
+        enemies = s.get('enemies', [])
+        target_enemy = None
+        if ' ' in command:
+            parts = command.split()
+            if len(parts) >= 2 and parts[1].isdigit():
+                idx = int(parts[1]) - 1
+                if 0 <= idx < len(enemies) and enemies[idx]['hp'] > 0:
+                    target_enemy = enemies[idx]
+        
+        if target_enemy is None:
+            # Default to focused enemy or first alive
+            focus_id = s.get('focus_enemy_id')
+            if focus_id:
+                for e in enemies:
+                    if e['id'] == focus_id and e['hp'] > 0:
+                        target_enemy = e
+                        break
+            if target_enemy is None:
+                for e in enemies:
+                    if e['hp'] > 0:
+                        target_enemy = e
+                        break
+        
+        if target_enemy is None:
+            raise CombatError('Nessun bersaglio valido.')
+    
+    # Passive mob interactions - hunt, capture, negotiate
+    if command.startswith(('hunt', 'capture', 'negotiate')):
+        if s['phase'] != 'player':
+            raise CombatError('Non è il tuo turno.')
+        s['last_player_action_real'] = time.time()
+        
+        # Get target enemy
+        enemies = s.get('enemies', [])
+        target_enemy = None
+        if ' ' in command:
+            parts = command.split()
+            if len(parts) >= 2 and parts[1].isdigit():
+                idx = int(parts[1]) - 1
+                if 0 <= idx < len(enemies) and enemies[idx]['hp'] > 0:
+                    target_enemy = enemies[idx]
+        if target_enemy is None:
+            # Default to focused or first alive
+            if s.get('focus_enemy_id'):
+                for e in enemies:
+                    if e['id'] == s['focus_enemy_id'] and e['hp'] > 0:
+                        target_enemy = e
+                        break
+            if not target_enemy:
+                for e in enemies:
+                    if e['hp'] > 0:
+                        target_enemy = e
+                        break
+        if not target_enemy:
+            raise CombatError('Nessun bersaglio disponibile.')
+        
+        # Load mob definition to check AI state
+        mob_def = MOBS.get(target_enemy['id'], {})
+        ai_state = mob_def.get('ai_state', 'aggressive')
+        behavioral_traits = mob_def.get('behavioral_traits', {})
+        
+        return _handle_passive_interaction(state, registry, command.split()[0], target_enemy, mob_def, behavioral_traits, lines)
+    
     # Attack (supporta target: attack 2)
     if command.startswith('attack'):
         # Attacco ad area: "attack all"
@@ -1660,3 +1847,255 @@ def helper_force_focus_autoswitch(state: GameState):  # pragma: no cover - utili
     _auto_switch_focus_if_needed(state)
 
 __all__.extend(['helper_reset_player_phase', 'helper_force_focus_autoswitch'])
+
+def _handle_passive_interaction(state: GameState, registry: ContentRegistry, action: str, 
+                               target_enemy: Dict[str, Any], mob_def: Dict[str, Any], 
+                               behavioral_traits: Dict[str, Any], lines: List[str]) -> Dict[str, Any]:
+    """Handle special interactions with passive mobs (hunt, capture, negotiate)."""
+    s = state.combat_session
+    ai_state = mob_def.get('ai_state', 'aggressive')
+    
+    # Only allow special interactions with passive mobs
+    if ai_state not in ['passive', 'surrendered', 'fleeing']:
+        if action == 'hunt':
+            lines.append(f"Il {target_enemy['name']} è troppo aggressivo per essere cacciato facilmente.")
+        elif action == 'capture':
+            lines.append(f"Il {target_enemy['name']} si oppone troppo fieramente per essere catturato.")
+        elif action == 'negotiate':
+            lines.append(f"Il {target_enemy['name']} non sembra interessato a negoziare.")
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+    
+    s['last_player_action_real'] = time.time()
+    
+    if action == 'hunt':
+        return _handle_hunt_action(state, target_enemy, mob_def, behavioral_traits, lines)
+    elif action == 'capture':
+        return _handle_capture_action(state, target_enemy, mob_def, behavioral_traits, lines)
+    elif action == 'negotiate':
+        return _handle_negotiate_action(state, target_enemy, mob_def, behavioral_traits, lines)
+    
+    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+
+def _handle_hunt_action(state: GameState, target_enemy: Dict[str, Any], 
+                       mob_def: Dict[str, Any], behavioral_traits: Dict[str, Any], 
+                       lines: List[str]) -> Dict[str, Any]:
+    """Handle hunting passive animals."""
+    s = state.combat_session
+    
+    # Check if it's an animal
+    if not behavioral_traits.get('is_animal', False):
+        lines.append(f"Non puoi cacciare {target_enemy['name']} - non è un animale.")
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+    
+    # Hunting success based on animal's current health and flee chance
+    flee_chance = behavioral_traits.get('flee_chance', 0.3)
+    current_hp_ratio = target_enemy['hp'] / target_enemy['max_hp']
+    
+    # Higher success if animal is wounded
+    base_success = 0.7 if current_hp_ratio < 0.5 else 0.4
+    
+    # Random factor
+    global _RNG
+    rng = _RNG or random
+    success_roll = rng.random()
+    
+    if success_roll < base_success:
+        # Successful hunt
+        target_enemy['hp'] = 0
+        lines.append(f"Riesci a cacciare {target_enemy['name']} con successo.")
+        
+        # Enhanced loot for successful hunting
+        _handle_passive_mob_loot(state, target_enemy, mob_def, enhanced_loot=True)
+        
+        # Moral consequences for hunting
+        moral_impact = behavioral_traits.get('moral_impact', 'none')
+        if moral_impact == 'negative':
+            lines.append("Senti un peso sulla coscienza per aver ucciso una creatura innocente.")
+        elif moral_impact == 'neutral':
+            lines.append("È la legge della sopravvivenza.")
+            
+        _emit_combat_event('successful_hunt', {
+            '_state': state,
+            'target_id': target_enemy['id'],
+            'moral_impact': moral_impact
+        })
+    
+    elif success_roll < base_success + flee_chance:
+        # Animal flees
+        lines.append(f"{target_enemy['name']} ti sfugge e scappa via!")
+        target_enemy['hp'] = 0  # Remove from combat
+        
+        _emit_combat_event('prey_escaped', {
+            '_state': state,
+            'target_id': target_enemy['id']
+        })
+    
+    else:
+        # Failed hunt - animal becomes defensive
+        lines.append(f"{target_enemy['name']} percepisce il pericolo e assume una posizione difensiva.")
+        
+        # Change AI state to cautious (defensive but not fleeing)
+        if s.get('new_system_active'):
+            ai = _get_tactical_ai()
+            ai._ai_states[target_enemy['id']] = AIState.CAUTIOUS
+    
+    _check_end(state)
+    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+
+def _handle_capture_action(state: GameState, target_enemy: Dict[str, Any], 
+                          mob_def: Dict[str, Any], behavioral_traits: Dict[str, Any], 
+                          lines: List[str]) -> Dict[str, Any]:
+    """Handle capturing surrendered humans."""
+    s = state.combat_session
+    
+    ai_state = mob_def.get('ai_state', 'aggressive')
+    if ai_state != 'surrendered':
+        lines.append(f"{target_enemy['name']} non si è arreso - non puoi catturarlo.")
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+    
+    # Capture attempt
+    global _RNG
+    rng = _RNG or random
+    
+    # Success factors
+    surrender_complete = behavioral_traits.get('surrender_complete', True)
+    has_hidden_weapon = behavioral_traits.get('has_hidden_weapon', False)
+    
+    base_success = 0.8 if surrender_complete else 0.5
+    
+    if rng.random() < base_success:
+        # Successful capture
+        target_enemy['hp'] = 0  # Remove from combat
+        lines.append(f"Catturi {target_enemy['name']} con successo.")
+        
+        # Loot from captured person (search them)
+        _handle_passive_mob_loot(state, target_enemy, mob_def, captured=True)
+        
+        # Moral choice outcome
+        if behavioral_traits.get('has_family_photo', False):
+            lines.append("Frugando tra i suoi effetti personali, trovi una foto di famiglia...")
+            lines.append("Ti fa riflettere sulla tua decisione.")
+        
+        _emit_combat_event('successful_capture', {
+            '_state': state,
+            'target_id': target_enemy['id'],
+            'has_story': behavioral_traits.get('has_personal_story', False)
+        })
+    
+    else:
+        if has_hidden_weapon:
+            # Hidden weapon revealed - combat continues
+            lines.append(f"{target_enemy['name']} estrae un'arma nascosta e ti attacca!")
+            
+            # Change to aggressive temporarily
+            if s.get('new_system_active'):
+                ai = _get_tactical_ai()
+                ai._ai_states[target_enemy['id']] = AIState.AGGRESSIVE
+            
+            # Immediate counter-attack
+            damage = behavioral_traits.get('hidden_weapon_damage', 5)
+            state.player_hp = max(0, state.player_hp - damage)
+            lines.append(f"Vieni colpito per {damage} danni! HP: {state.player_hp}/{state.player_max_hp}")
+        
+        else:
+            # Just becomes more defensive
+            lines.append(f"{target_enemy['name']} si irrigidisce e oppone resistenza.")
+    
+    _check_end(state)
+    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+
+def _handle_negotiate_action(state: GameState, target_enemy: Dict[str, Any], 
+                           mob_def: Dict[str, Any], behavioral_traits: Dict[str, Any], 
+                           lines: List[str]) -> Dict[str, Any]:
+    """Handle negotiating with surrendered or wounded humans."""
+    s = state.combat_session
+    
+    ai_state = mob_def.get('ai_state', 'aggressive')
+    
+    # Only works with surrendered or wounded humans
+    if not behavioral_traits.get('can_negotiate', False):
+        lines.append(f"{target_enemy['name']} non sembra in grado di negoziare.")
+        return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+    
+    # Negotiation outcomes based on mob's story and traits
+    global _RNG
+    rng = _RNG or random
+    
+    negotiation_outcomes = mob_def.get('negotiation_outcomes', [])
+    if not negotiation_outcomes:
+        # Default outcomes
+        negotiation_outcomes = [
+            {"success": True, "message": "Si allontana rapidamente senza fare storie.", "loot": None},
+            {"success": False, "message": "Scuote la testa e rimane in posizione difensiva.", "loot": None}
+        ]
+    
+    # Choose random outcome
+    outcome = rng.choice(negotiation_outcomes)
+    
+    if outcome['success']:
+        # Successful negotiation - enemy leaves peacefully
+        target_enemy['hp'] = 0  # Remove from combat
+        lines.append(f"Riesci a negoziare con {target_enemy['name']}.")
+        lines.append(outcome['message'])
+        
+        # Possible reward for peaceful resolution
+        if outcome.get('loot'):
+            loot_item = outcome['loot']
+            _add_item_to_inventory(state, loot_item, 1)
+            # Load item name from items.json if possible, otherwise use ID
+            item_name = loot_item.replace('_', ' ').title()
+            lines.append(f"Ti offre {item_name} come segno di gratitudine.")
+        
+        # Positive moral impact
+        lines.append("Ti senti meglio per aver risolto la situazione pacificamente.")
+        
+        _emit_combat_event('successful_negotiation', {
+            '_state': state,
+            'target_id': target_enemy['id'],
+            'peaceful_resolution': True
+        })
+    
+    else:
+        # Failed negotiation
+        lines.append(f"Il tentativo di negoziazione con {target_enemy['name']} fallisce.")
+        lines.append(outcome['message'])
+        
+        # May become more hostile or remain defensive
+        if behavioral_traits.get('becomes_hostile_on_failed_negotiation', False):
+            if s.get('new_system_active'):
+                ai = _get_tactical_ai()
+                ai._ai_states[target_enemy['id']] = AIState.AGGRESSIVE
+            lines.append(f"{target_enemy['name']} diventa ostile!")
+    
+    _check_end(state)
+    return {'lines': lines, 'hints': [], 'events_triggered': [], 'changes': {}}
+
+def _handle_passive_mob_loot(state: GameState, enemy: Dict[str, Any], 
+                            mob_def: Dict[str, Any], enhanced_loot: bool = False, 
+                            captured: bool = False) -> None:
+    """Enhanced loot handling for passive mob interactions."""
+    # Get loot table
+    loot_table = mob_def.get('loot_table', [])
+    if not loot_table:
+        return
+    
+    # Enhanced loot gives better chances or additional items
+    loot_modifier = 1.5 if enhanced_loot else 1.0
+    
+    global _RNG
+    rng = _RNG or random
+    
+    for loot_entry in loot_table:
+        item_id = loot_entry['item']
+        base_chance = loot_entry.get('chance', 1.0)
+        quantity = loot_entry.get('quantity', 1)
+        
+        # Apply modifier
+        final_chance = min(1.0, base_chance * loot_modifier)
+        
+        if rng.random() < final_chance:
+            # Special handling for captured humans (they have more items on them)
+            if captured and 'captured_bonus' in loot_entry:
+                quantity = loot_entry['captured_bonus']
+            
+            _add_item_to_inventory(state, item_id, quantity)

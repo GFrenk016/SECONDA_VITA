@@ -1,0 +1,40 @@
+{
+  "id": "survivor_injured",
+  "name": "Sopravvissuto Ferito",
+  "hp": 6,
+  "attack": 0,
+  "attack_variance": 0,
+  "max_stamina": 50,
+  "max_posture": 40.0,
+  "stagger_threshold": 0.3,
+  "weapon_handling": 0.4,
+  "resistances": {
+    "blunt": 1.0,
+    "slash": 1.0,
+    "pierce": 1.0,
+    "bleed": 1.2,
+    "burn": 1.1,
+    "shock": 0.9
+  },
+  "ai_state": "passive",
+  "ai_traits": {
+    "surrendered": true,
+    "pleading": true,
+    "human": true
+  },
+  "behavior": "passive_human",
+  "flee_chance": 0.2,
+  "qte_chance": 0.3,
+  "qte_window_minutes": 4,
+  "qte_prompts": [
+    {"part": "supplica", "prompt": "Ascolta la supplica (A) o Ignora (I)", "expected": "a", "effect": "mercy"},
+    {"part": "resistenza", "prompt": "Calma la resistenza! (C)", "expected": "c", "effect": "pacify"}
+  ],
+  "loot": [
+    {"item": "medicazioni", "chance": 0.6, "quantity": 1},
+    {"item": "foto_famiglia", "chance": 0.3, "quantity": 1},
+    {"item": "cibo_in_scatola", "chance": 0.4, "quantity": 1}
+  ],
+  "moral_choice": true,
+  "execution_gives_trauma": true
+}

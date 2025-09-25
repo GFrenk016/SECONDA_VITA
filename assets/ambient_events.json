@@ -145,6 +145,130 @@
           "Un senso di protezione ti avvolge mentre procedi con cautela."
         ]
       }
+    },
+    {
+      "id": "encounter_calm_day",
+      "name": "Incontro Tranquillo Diurno", 
+      "description": "Incontri casuali durante giornate calme",
+      "conditions": [
+        {
+          "type": "weather",
+          "key": "sereno"
+        },
+        {
+          "type": "daytime_range",
+          "start": "mattina",
+          "end": "sera"
+        }
+      ],
+      "messages": [
+        "Un coniglio curioso ti osserva da dietro un cespuglio prima di saltellare via.",
+        "Una farfalla colorata danza attorno a te per qualche istante.",
+        "Il suono lontano di uno scoiattolo che rosicchia una ghianda riempie l'aria.",
+        "Un raggio di sole filtra tra le foglie, illuminando un piccolo fiore selvatico."
+      ],
+      "frequency": 20,
+      "chance": 0.4,
+      "effects": [
+        {
+          "type": "mood_boost",
+          "amount": 0.1
+        }
+      ]
+    },
+    {
+      "id": "encounter_storm_day",
+      "name": "Incontro Tempesta Diurna",
+      "description": "Incontri durante maltempo diurno",
+      "conditions": [
+        {
+          "type": "weather",
+          "key": "pioggia"
+        },
+        {
+          "type": "daytime_range", 
+          "start": "mattina",
+          "end": "sera"
+        }
+      ],
+      "messages": [
+        "Un piccolo animale cerca riparo sotto le stesse fronde che proteggono te.",
+        "La pioggia rivela tracce fresche nel fango: qualcuno è passato di qui di recente.",
+        "Tra i rumori della pioggia, senti un fruscio più intenso tra i cespugli.",
+        "Il terreno fangoso mostra impronte strane, più profonde del normale."
+      ],
+      "frequency": 25,
+      "chance": 0.5,
+      "effects": [
+        {
+          "type": "increase_loot_chance",
+          "loot_type": "wet_materials",
+          "multiplier": 1.5
+        }
+      ]
+    },
+    {
+      "id": "encounter_calm_night",
+      "name": "Incontro Tranquillo Notturno",
+      "description": "Incontri notturni durante tempo sereno",
+      "conditions": [
+        {
+          "type": "weather", 
+          "key": "sereno"
+        },
+        {
+          "type": "daytime",
+          "key": "notte"
+        }
+      ],
+      "messages": [
+        "Gli occhi di un animale notturno brillano per un istante prima di scomparire.",
+        "Un gufo richiama dal buio, il suo verso echeggia tra gli alberi.",
+        "Il cielo stellato si riflette in una pozza d'acqua, creando un doppio firmamento.",
+        "Una brezza notturna porta il profumo di fiori che si aprono solo nell'oscurità."
+      ],
+      "frequency": 30,
+      "chance": 0.3,
+      "effects": [
+        {
+          "type": "stealth_bonus",
+          "duration": 300
+        }
+      ]
+    },
+    {
+      "id": "encounter_storm_night", 
+      "name": "Incontro Tempesta Notturna",
+      "description": "Incontri notturni durante maltempo",
+      "conditions": [
+        {
+          "type": "weather",
+          "key": "pioggia"
+        },
+        {
+          "type": "daytime",
+          "key": "notte"
+        }
+      ],
+      "messages": [
+        "Un bagliore di fulmine illumina brevemente una figura che si muove tra gli alberi.",
+        "Il vento porta il suono di passi affrettati su terreno bagnato.",
+        "Tra i lampi vedi sagome che potrebbero essere trappole naturali o... altro.",
+        "La tempesta nasconde suoni inquietanti che farebbero tremare chiunque."
+      ],
+      "frequency": 35,
+      "chance": 0.6,
+      "effects": [
+        {
+          "type": "increase_trap_chance",
+          "multiplier": 2.0
+        },
+        {
+          "type": "increase_loot_chance",
+          "loot_type": "rare_items",
+          "multiplier": 1.3
+        }
+      ]
     }
   ],
   "time_events": [

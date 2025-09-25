@@ -16,6 +16,7 @@ from . import persistence
 from . import events
 from . import choices
 from . import ambient_events
+from . import quests
 import textwrap
 import random
 import time
@@ -581,6 +582,11 @@ def look(state: GameState, registry: ContentRegistry) -> Dict[str, object]:
     memory_messages = maybe_trigger_memory(state, "look", state.location_key())
     if memory_messages:
         lines.extend([""] + memory_messages)
+    
+    # Update quest progress
+    quest_messages = quests.quest_manager.update_quest_progress(state)
+    if quest_messages:
+        lines.extend([""] + quest_messages)
     
     return {
         "lines": lines,
@@ -1744,5 +1750,151 @@ def memories(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
         "hints": [],
         "events_triggered": [],
         "changes": {"memory_count": len(state.memory_fragments)}
+    }
+
+
+def journal(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """Show quest journal with active missions."""
+    journal_lines = quests.quest_manager.get_quest_journal(state)
+    
+    return {
+        "lines": journal_lines,
+        "hints": [],
+        "events_triggered": [],
+        "changes": {"viewed_journal": True}
+    }
+
+
+def start_microquest(state: GameState, registry: ContentRegistry, quest_id: str = "knife_and_rain") -> Dict[str, Any]:
+    """Start a specific micro-quest."""
+    if quests.quest_manager.start_quest(quest_id, state):
+        quest = quests.quest_manager.quests.get(quest_id)
+        if quest:
+            first_step = quest.get_current_step()
+            if first_step:
+                is_night = state.daytime == "notte"
+                step_desc = first_step.get_description(is_night)
+                return {
+                    "lines": [
+                        f"*** Nuova Missione: {quest.name} ***",
+                        quest.description,
+                        "",
+                        f"Primo obiettivo: {step_desc}"
+                    ],
+                    "hints": ["Usa 'journal' per vedere i tuoi obiettivi attuali."],
+                    "events_triggered": [],
+                    "changes": {"quest_started": quest_id}
+                }
+        
+        return {
+            "lines": [f"Missione '{quest_id}' avviata."],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"quest_started": quest_id}
+        }
+    else:
+        return {
+            "lines": [f"Impossibile avviare la missione '{quest_id}'. Potrebbe essere già attiva o completata."],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {}
+        }
+
+
+def craft(state: GameState, registry: ContentRegistry, recipe_name: str) -> Dict[str, Any]:
+    """Craft an item using a recipe."""
+    try:
+        from engine.crafting import get_recipe_registry, craft_item
+        recipe_registry = get_recipe_registry()
+        
+        if not recipe_registry:
+            return {"lines": ["Sistema di crafting non disponibile."], "hints": [], "events_triggered": [], "changes": {}}
+        
+        # Find recipe by name or ID
+        target_recipe = None
+        for recipe in recipe_registry.get_all_recipes():
+            if recipe.id.lower() == recipe_name.lower() or recipe.name.lower() == recipe_name.lower():
+                target_recipe = recipe
+                break
+        
+        if not target_recipe:
+            return {"lines": [f"Ricetta '{recipe_name}' non trovata."], "hints": [], "events_triggered": [], "changes": {}}
+        
+        # Check if player has required materials
+        missing_materials = []
+        for ingredient in target_recipe.inputs:
+            current_qty = state.inventory.get(ingredient.item_id, 0)
+            if current_qty < ingredient.quantity:
+                missing_materials.append(f"{ingredient.quantity - current_qty}x {ingredient.item_id}")
+        
+        if missing_materials:
+            return {
+                "lines": [
+                    f"Materiali insufficienti per '{target_recipe.name}':",
+                    f"Mancano: {', '.join(missing_materials)}"
+                ],
+                "hints": [],
+                "events_triggered": [],
+                "changes": {}
+            }
+        
+        # Consume materials
+        for ingredient in target_recipe.inputs:
+            state.inventory[ingredient.item_id] -= ingredient.quantity
+            if state.inventory[ingredient.item_id] <= 0:
+                del state.inventory[ingredient.item_id]
+        
+        # Add crafted item
+        current_output = state.inventory.get(target_recipe.output.item_id, 0)
+        state.inventory[target_recipe.output.item_id] = current_output + target_recipe.output.quantity
+        
+        # Special quest progress for bandage crafting
+        if target_recipe.id == "bandage":
+            state.flags["crafted_first_bandage"] = True
+        
+        return {
+            "lines": [
+                f"Hai creato: {target_recipe.output}",
+                f"Usando: {', '.join(str(ing) for ing in target_recipe.inputs)}"
+            ],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"crafted": target_recipe.output.item_id}
+        }
+        
+    except Exception as e:
+        return {"lines": [f"Errore nel crafting: {e}"], "hints": [], "events_triggered": [], "changes": {}}
+
+
+def encounter_wounded_wanderer(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """Trigger the wounded wanderer encounter for the micro-quest."""
+    if state.flags.get("encountered_wounded_wanderer"):
+        return {"lines": ["Hai già incontrato il vagante ferito."], "hints": [], "events_triggered": [], "changes": {}}
+    
+    # Start the encounter
+    state.flags["encountered_wounded_wanderer"] = True
+    
+    is_night = state.daytime == "notte"
+    
+    if is_night:
+        encounter_text = [
+            "Nel buio, senti i gemiti sommessi di qualcuno in difficoltà.",
+            "Avvicinandoti cautamente, scorgi la sagoma di un vagante ferito, accasciato contro un albero.",
+            "Le sue ferite sembrano gravi e ha bisogno di aiuto immediato.",
+            "È il momento di decidere come agire..."
+        ]
+    else:
+        encounter_text = [
+            "Davanti a te appare un vagante visibilmente ferito, che si trascina a fatica.",
+            "Il sangue macchia i suoi vestiti strappati e il suo sguardo è quello di chi ha perso ogni speranza.",
+            "Si ferma vedendoti, il respiro affannoso mentre ti fissa con occhi supplici.",
+            "È il momento di decidere come agire..."
+        ]
+    
+    return {
+        "lines": encounter_text,
+        "hints": ["La tua prossima azione determinerà l'esito di questo incontro."],
+        "events_triggered": [],
+        "changes": {"encounter_triggered": "wounded_wanderer"}
     }
 

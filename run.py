@@ -18,7 +18,7 @@ except Exception:
     pass
 import difflib
 from dataclasses import asdict
-from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, end_conversation, profile, save_game, load_game, list_saves, choice, memories
+from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, end_conversation, profile, save_game, load_game, list_saves, choice, memories, journal, start_microquest, craft, encounter_wounded_wanderer
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
 from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
@@ -59,6 +59,9 @@ COMMAND_HELP = {
     'saves': {'usage': 'saves', 'desc': 'Mostra l\'elenco dei salvataggi disponibili.', 'examples': ['saves']},
     'choice': {'usage': 'choice list|present <id>|choose <num>|history', 'desc': 'Sistema di scelte narrative.', 'examples': ['choice list', 'choice history']},
     'memories': {'usage': 'memories', 'desc': 'Mostra i frammenti di memoria del protagonista.', 'examples': ['memories']},
+    'journal': {'usage': 'journal', 'desc': 'Mostra il diario delle missioni attive.', 'examples': ['journal']},
+    'quest': {'usage': 'quest start <nome>', 'desc': 'Avvia una micro-missione specifica.', 'examples': ['quest start knife_and_rain']},
+    'craft': {'usage': 'craft <ricetta>', 'desc': 'Crea un oggetto usando una ricetta.', 'examples': ['craft bandage', 'craft knife']},
     'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.', 'examples': ['help', 'help look', 'help combat']},
     'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.', 'examples': ['menu']},
     'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.', 'examples': ['quit', 'exit']},
@@ -411,6 +414,26 @@ def game_loop():
                     res = choice(state, registry, parts[1], parts[2])
             elif cmd == "memories":
                 res = memories(state, registry)
+            elif cmd == "journal":
+                res = journal(state, registry)
+            elif cmd.startswith("quest"):
+                parts = cmd.split()
+                if len(parts) >= 3 and parts[1] == "start":
+                    quest_id = parts[2]
+                    res = start_microquest(state, registry, quest_id)
+                else:
+                    print("Uso: quest start <nome_missione>")
+                    continue
+            elif cmd.startswith("craft"):
+                parts = cmd.split(maxsplit=1)
+                if len(parts) == 1:
+                    print("Uso: craft <ricetta>")
+                    continue
+                recipe_name = parts[1].strip()
+                if not recipe_name:
+                    print("Uso: craft <ricetta>")
+                    continue
+                res = craft(state, registry, recipe_name)
             else:
                 close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
                 if close:

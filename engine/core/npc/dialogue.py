@@ -223,6 +223,9 @@ SITUAZIONE ATTUALE:
 CONVERSAZIONE RECENTE:
 {recent_history}
 
+ARGOMENTI ATTUALI:
+{self._format_current_topics(npc, context)}
+
 CONOSCENZE SPECIALI:
 {json.dumps(npc.special_knowledge, indent=2, ensure_ascii=False) if npc.special_knowledge else "Nessuna conoscenza speciale"}
 
@@ -377,6 +380,9 @@ Rispondi come {npc.name} mantenendo il personaggio coerente. Rispondi in italian
             'npc': response
         })
         
+        # Store topic persistence - remember what was discussed
+        self._update_conversation_topics(npc, player_input, response)
+        
         # Keep only recent conversation history (8 turns as per requirements)
         if len(context.conversation_history) > 8:
             context.conversation_history = context.conversation_history[-8:]
@@ -417,6 +423,65 @@ Rispondi come {npc.name} mantenendo il personaggio coerente. Rispondi in italian
             npc.adjust_mood(0.08)
             if hasattr(npc, 'trust'):
                 npc.trust = min(1.0, getattr(npc, 'trust', 0.0) + 0.05)
+    
+    def _format_current_topics(self, npc: NPC, context: DialogueContext) -> str:
+        """Format current conversation topics for AI prompt."""
+        topics = []
+        
+        # Add persistent topics from NPC
+        if npc.conversation_topics:
+            topics.extend(npc.conversation_topics)
+        
+        # Add context-based topics
+        if context.weather == "pioggia":
+            topics.append("pioggia e tempo")
+        if context.game_time:
+            if "notte" in str(context.game_time).lower():
+                topics.append("notte e oscurità")
+            elif "mattina" in str(context.game_time).lower():
+                topics.append("alba e nuovo giorno")
+        
+        # Add relationship-based topics
+        if npc.relationship in [NPCRelation.FRIEND, NPCRelation.ALLY]:
+            topics.append("amicizia e fiducia")
+        elif npc.relationship == NPCRelation.ENEMY:
+            topics.append("conflitto e tensione")
+        
+        if not topics:
+            return "Argomenti generali di conversazione"
+        
+        return "Argomenti rilevanti: " + ", ".join(topics[:5])  # Limit to 5 topics
+    
+    def _update_conversation_topics(self, npc: NPC, player_input: str, npc_response: str):
+        """Update conversation topics based on what was discussed."""
+        # Extract potential topics from player input and NPC response
+        combined_text = (player_input + " " + npc_response).lower()
+        
+        # Define topic keywords
+        topic_keywords = {
+            "bosco": ["bosco", "alberi", "foresta", "natura"],
+            "viaggio": ["viaggio", "cammino", "strada", "sentiero"],
+            "tempo": ["tempo", "pioggia", "sole", "meteo", "nuvole"],
+            "pericoli": ["pericolo", "nemici", "paura", "minaccia"],
+            "aiuto": ["aiuto", "assistenza", "sostegno", "favore"],
+            "famiglia": ["famiglia", "genitori", "fratello", "sorella"],
+            "passato": ["passato", "ricordi", "memoria", "prima"],
+            "futuro": ["futuro", "speranza", "domani", "dopo"],
+            "mistero": ["mistero", "segreto", "nascosto", "strano"],
+            "salute": ["salute", "ferite", "dolore", "medicine"]
+        }
+        
+        # Check for new topics to add
+        new_topics = []
+        for topic, keywords in topic_keywords.items():
+            if any(keyword in combined_text for keyword in keywords):
+                if topic not in npc.conversation_topics:
+                    new_topics.append(topic)
+        
+        # Add new topics (limit total topics to 10)
+        npc.conversation_topics.extend(new_topics)
+        if len(npc.conversation_topics) > 10:
+            npc.conversation_topics = npc.conversation_topics[-10:]
     
     def get_npc_profile(self, npc: NPC, context: DialogueContext) -> Dict[str, Any]:
         """Get detailed NPC profile information."""

@@ -14,6 +14,8 @@ from .world import MicroRoom, Exit
 from . import combat
 from . import persistence
 from . import events
+from . import choices
+from . import ambient_events
 import textwrap
 import random
 import time
@@ -267,6 +269,12 @@ def _do_inspect(state: GameState, registry: ContentRegistry, target: str, depth:
         suggestion = f"Possibile: search {name.lower()}"
     if suggestion:
         lines.append(suggestion)
+    
+    # Check for memory triggers based on the inspected object
+    memory_messages = maybe_trigger_memory(state, f"inspect_{obj_id}", state.location_key())
+    if memory_messages:
+        lines.extend([""] + memory_messages)
+    
     return {"lines": lines, "hints": [], "events_triggered": [], "changes": {"object": obj_id, "depth": eff_depth, "first_time": first_time_level}}
 
 def inspect(state: GameState, registry: ContentRegistry, target: str) -> Dict[str, object]:
@@ -486,6 +494,17 @@ def look(state: GameState, registry: ContentRegistry) -> Dict[str, object]:
     state.visited_micro.add(micro.id)
     state.visit_counts[micro.id] = state.visit_counts.get(micro.id, 0) + 1
     state.micro_last_signature[micro.id] = signature
+    
+    # Check for pending ambient messages
+    if hasattr(state, 'pending_ambient_messages') and state.pending_ambient_messages:
+        lines.extend([""] + state.pending_ambient_messages)
+        state.pending_ambient_messages.clear()
+    
+    # Check for memory triggers
+    memory_messages = maybe_trigger_memory(state, "look", state.location_key())
+    if memory_messages:
+        lines.extend([""] + memory_messages)
+    
     return {
         "lines": lines,
         "hints": exits_desc,
@@ -591,6 +610,14 @@ def _advance_time_and_weather(state: GameState):
         if state.weather == "pioggia" and new_weather == "pioggia" and random.random() < 0.05:
             state.climate = "umido"
         state.weather = new_weather
+    
+    # Check for ambient events (environmental storytelling)
+    ambient_messages = ambient_events.check_ambient_events(state)
+    if ambient_messages:
+        # Store ambient messages for retrieval by calling functions
+        if not hasattr(state, 'pending_ambient_messages'):
+            state.pending_ambient_messages = []
+        state.pending_ambient_messages.extend(ambient_messages)
 
 
 # --- New Inventory and Stats Commands ---
@@ -1274,6 +1301,127 @@ def list_saves(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
             "changes": {"error": str(e)}
         }
 
+# --- Choice System ---
+
+def choice(state: GameState, registry: ContentRegistry, action: str = None, target: str = None) -> Dict[str, Any]:
+    """Handle narrative choices. Usage: choice list|present <id>|choose <option_id>|history"""
+    if not action:
+        return {
+            "lines": ["Uso: choice list|present <id>|choose <option_id>|history"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {}
+        }
+    
+    action = action.lower()
+    
+    if action == "list":
+        # List available choices (simplified - in full game would check conditions)
+        available_choices = ["investigate_stone_marker", "respond_to_whisper", "npc_interaction_style"]
+        return {
+            "lines": ["Scelte disponibili:"] + [f"• {choice_id}" for choice_id in available_choices],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {}
+        }
+    
+    elif action == "present" and target:
+        result = choices.present_choice(target, state)
+        if "error" in result:
+            return {
+                "lines": [f"Errore: {result['error']}"],
+                "hints": [],
+                "events_triggered": [],
+                "changes": {}
+            }
+        
+        lines = [
+            f"=== {result['title']} ===",
+            result['description'],
+            "",
+            "Opzioni disponibili:"
+        ]
+        for i, option in enumerate(result['options'], 1):
+            lines.append(f"{i}. {option['text']}")
+            if option['description']:
+                lines.append(f"   {option['description']}")
+        
+        lines.append("")
+        lines.append("Usa 'choice choose <numero>' per selezionare.")
+        
+        return {
+            "lines": lines,
+            "hints": [f"choice choose {i}" for i in range(1, len(result['options'])+1)],
+            "events_triggered": [],
+            "changes": {"presented_choice": result['choice_id']}
+        }
+    
+    elif action == "choose" and target:
+        try:
+            # Handle numeric choice (1, 2, 3) or direct option ID
+            if target.isdigit():
+                choice_num = int(target) - 1
+                if choices.choice_system.active_choice and 0 <= choice_num < len(choices.choice_system.active_choice.options):
+                    option_id = choices.choice_system.active_choice.options[choice_num].id
+                else:
+                    return {
+                        "lines": ["Numero di scelta non valido"],
+                        "hints": [],
+                        "events_triggered": [],
+                        "changes": {}
+                    }
+            else:
+                option_id = target
+            
+            result = choices.make_choice(option_id, state, registry)
+            if "error" in result:
+                return {
+                    "lines": [f"Errore: {result['error']}"],
+                    "hints": [],
+                    "events_triggered": [],
+                    "changes": {}
+                }
+            
+            return result
+            
+        except (ValueError, IndexError):
+            return {
+                "lines": ["Scelta non valida"],
+                "hints": [],
+                "events_triggered": [],
+                "changes": {}
+            }
+    
+    elif action == "history":
+        history = choices.get_choice_history(state)
+        if not history:
+            return {
+                "lines": ["Nessuna scelta effettuata finora"],
+                "hints": [],
+                "events_triggered": [],
+                "changes": {}
+            }
+        
+        lines = ["=== Cronologia Scelte ==="]
+        for entry in history:
+            time_str = f"{entry['timestamp'] // 60:02d}:{entry['timestamp'] % 60:02d}"
+            lines.append(f"Giorno {entry['day']} {time_str} - {entry['choice_id']}: {entry['option_id']}")
+        
+        return {
+            "lines": lines,
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"history_length": len(history)}
+        }
+    
+    else:
+        return {
+            "lines": ["Uso: choice list|present <id>|choose <option_id>|history"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {}
+        }
+
 
 def process_npc_turn(npc, player, world, scene_context):
     """Process an NPC AI turn with structured output validation.
@@ -1315,4 +1463,106 @@ def process_npc_turn(npc, player, world, scene_context):
             return json.dumps(mock_response)
     
     return npc_turn(llm_call, npc, player, world, scene_context)
+
+# --- Protagonist Memory System ---
+
+def maybe_trigger_memory(state: GameState, context: str = "", location: str = "") -> List[str]:
+    """Check if a memory should be triggered and return memory messages."""
+    memories = []
+    
+    # Memory triggers based on context and current state
+    memory_triggers = {
+        "first_forest_entry": {
+            "condition": lambda s: s.flags.get("visited_bosco") and len(s.memory_fragments) == 0,
+            "memory": "Un ricordo confuso affiora: eri già stato in un bosco simile, molto tempo fa. Le immagini sono sfocate, ma la sensazione di familiarità è forte."
+        },
+        "ancient_stone": {
+            "condition": lambda s: s.flags.get("inspected_cippo") and not any(m.get("type") == "stone_memory" for m in s.memory_fragments),
+            "memory": "Toccando la pietra antica, un frammento di memoria si cristallizza: qualcuno che conoscevi ti aveva parlato di questi simboli, ma non riesci a ricordare chi."
+        },
+        "forest_whisper": {
+            "condition": lambda s: s.flags.get("heard_whisper") and s.flags.get("forest_connection"),
+            "memory": "Il sussurro risveglia un'eco profonda nella tua mente. Una voce familiare, forse della tua infanzia, che ti chiamava con lo stesso tono misterioso."
+        },
+        "midnight_vision": {
+            "condition": lambda s: s.flags.get("midnight_vision"),
+            "memory": "La luce eterea ti ricorda un sogno ricorrente che hai fatto per anni. In quel sogno, seguivi sempre una luce simile verso qualcosa di importante."
+        },
+        "respectful_approach": {
+            "condition": lambda s: s.flags.get("respectful_explorer") and context == "nature_interaction",
+            "memory": "La tua cautela nel trattare con la natura ti ricorda gli insegnamenti di qualcuno del tuo passato: 'Rispetta sempre ciò che non comprendi.'"
+        }
+    }
+    
+    # Check memory triggers
+    for memory_id, trigger in memory_triggers.items():
+        if trigger["condition"](state):
+            # Create memory fragment
+            memory_fragment = {
+                "type": "memory",
+                "memory_id": memory_id,
+                "text": trigger["memory"],
+                "timestamp": state.time_minutes,
+                "day": state.day_count,
+                "location": state.location_key(),
+                "context": context
+            }
+            
+            state.memory_fragments.append(memory_fragment)
+            state.timeline.append(memory_fragment)
+            memories.append(f"[RICORDO] {trigger['memory']}")
+    
+    # Check for memory fragments triggered by ambient events
+    if state.flags.get("memory_check_pending"):
+        state.flags["memory_check_pending"] = False
+        
+        # Random memory based on current circumstances
+        random_memories = [
+            "Un profumo di terra umida ti riporta alla mente un giardino della tua infanzia.",
+            "Il suono del vento tra le foglie evoca il ricordo di una ninna nanna dimenticata.",
+            "La luce filtrata tra i rami ti ricorda una mattina speciale del passato.",
+            "Un senso di nostalgia ti avvolge, come se questo posto custodisse parte della tua storia."
+        ]
+        
+        memory_text = random.choice(random_memories)
+        memory_fragment = {
+            "type": "ambient_memory",
+            "text": memory_text,
+            "timestamp": state.time_minutes,
+            "day": state.day_count,
+            "location": state.location_key(),
+            "context": "ambient"
+        }
+        
+        state.memory_fragments.append(memory_fragment)
+        memories.append(f"[RICORDO] {memory_text}")
+    
+    return memories
+
+def memories(state: GameState, registry: ContentRegistry) -> Dict[str, Any]:
+    """Display protagonist's memory fragments."""
+    if not state.memory_fragments:
+        return {
+            "lines": ["Non hai ancora recuperato nessun ricordo significativo."],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {}
+        }
+    
+    lines = ["=== Frammenti di Memoria ==="]
+    
+    # Sort memories by timestamp
+    sorted_memories = sorted(state.memory_fragments, key=lambda m: (m.get("day", 0), m.get("timestamp", 0)))
+    
+    for memory in sorted_memories:
+        time_str = f"{memory.get('timestamp', 0) // 60:02d}:{memory.get('timestamp', 0) % 60:02d}"
+        day_str = f"Giorno {memory.get('day', 0)}"
+        lines.append(f"{day_str} {time_str} - {memory['text']}")
+    
+    return {
+        "lines": lines,
+        "hints": [],
+        "events_triggered": [],
+        "changes": {"memory_count": len(state.memory_fragments)}
+    }
 

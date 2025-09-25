@@ -92,6 +92,12 @@ class GameState:
     npc_memories: Dict[str, Any] = field(default_factory=dict)  # Reserved for future use
     relationships: Dict[str, int] = field(default_factory=dict)  # npc_id -> relationship score
 
+    # --- Protagonist Memory System ---
+    memory_fragments: List[Dict[str, Any]] = field(default_factory=list)  # Protagonist memories and flashbacks
+    
+    # --- Ambient Events System ---
+    pending_ambient_messages: List[str] = field(default_factory=list)  # Messages from ambient events to display
+
     def recompute_from_real(self, now_ts: float):
         if self.real_start_ts is None:
             self.real_start_ts = now_ts

@@ -18,7 +18,7 @@ except Exception:
     pass
 import difflib
 from dataclasses import asdict
-from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, save_game, load_game, list_saves
+from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, save_game, load_game, list_saves, choice, memories
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
 from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
@@ -56,6 +56,8 @@ COMMAND_HELP = {
     'save': {'usage': 'save [nome_slot]', 'desc': 'Salva la partita corrente. Default: quicksave.'},
     'load': {'usage': 'load [nome_slot]', 'desc': 'Carica una partita salvata. Default: quicksave.'},
     'saves': {'usage': 'saves', 'desc': 'Mostra l\'elenco dei salvataggi disponibili.'},
+    'choice': {'usage': 'choice list|present <id>|choose <num>|history', 'desc': 'Sistema di scelte narrative.'},
+    'memories': {'usage': 'memories', 'desc': 'Mostra i frammenti di memoria del protagonista.'},
     'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.'},
     'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.'},
     'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.'},
@@ -386,6 +388,16 @@ def game_loop():
                         setattr(state, field_name, field_value)
             elif cmd == "saves":
                 res = list_saves(state, registry)
+            elif cmd.startswith("choice"):
+                parts = cmd.split(maxsplit=2)
+                if len(parts) == 1:
+                    res = choice(state, registry)
+                elif len(parts) == 2:
+                    res = choice(state, registry, parts[1])
+                else:
+                    res = choice(state, registry, parts[1], parts[2])
+            elif cmd == "memories":
+                res = memories(state, registry)
             else:
                 close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
                 if close:

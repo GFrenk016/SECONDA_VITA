@@ -42,8 +42,10 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
     # Load events system
     try:
         from engine.core.events import load_events
+        from engine.core.ambient_events import load_ambient_events
         load_events()
-        print("-- Sistema eventi caricato --")
+        load_ambient_events()
+        print("-- Sistema eventi e eventi ambientali caricati --")
     except Exception as e:
         print(f"Warning: Failed to load events: {e}")
     

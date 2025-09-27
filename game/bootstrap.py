@@ -11,11 +11,22 @@ import time
 from config import get_time_scale
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "world"
+# Preferisci il mondo di test come sorgente principale
+TEST_WORLD_FILE = ASSETS_DIR / "test_world.json"
 WORLD_FILE = ASSETS_DIR / "world.json"
 
 def load_world_and_state() -> tuple[ContentRegistry, GameState]:
-    with WORLD_FILE.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+    # Carica il mondo: usa test_world.json se disponibile; altrimenti fallback a world.json
+    data: dict
+    if TEST_WORLD_FILE.exists():
+        with TEST_WORLD_FILE.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        print("-- Mondo di test caricato come mondo principale --")
+    else:
+        with WORLD_FILE.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        print("[INFO] test_world.json non trovato, caricamento di world.json di default")
+    
     # Carica strings centralizzati
     strings_path = WORLD_FILE.parent.parent / "strings.json"
     strings_data = {}
@@ -109,3 +120,24 @@ def load_world_and_state() -> tuple[ContentRegistry, GameState]:
         state._npc_registry_ref = registry.npc_registry
     
     return registry, state
+
+def setup_game() -> tuple[GameState, ContentRegistry]:
+    """Convenience initializer used by tests and scripts.
+
+    Returns (state, registry) to match historical tests that expect this order.
+    Loads world, builds initial GameState, and injects combat content so
+    start_combat/resolve_combat_action work out of the box.
+    """
+    registry, state = load_world_and_state()
+
+    # Load and inject combat content (weapons/mobs) so the combat system is ready
+    try:
+        from engine.core.loader.content_loader import load_combat_content
+        from engine.core.combat import inject_content
+        weapons, mobs = load_combat_content()
+        inject_content(weapons, mobs)
+    except Exception as e:
+        # Don't fail tests if optional content fails to load
+        print(f"[setup_game] Warning: failed to load combat content: {e}")
+
+    return state, registry

@@ -7,7 +7,7 @@ Returns ActionResult dicts with keys:
 - changes: dict summarizing state changes
 """
 from __future__ import annotations
-from typing import Dict, List
+from typing import Dict, List, Any
 from .state import GameState
 from .registry import ContentRegistry
 from .world import MicroRoom, Exit
@@ -617,13 +617,30 @@ def go(state: GameState, registry: ContentRegistry, direction: str) -> Dict[str,
     new_location = state.location_key()
     event_messages = events.process_events("on_enter", new_location, state, registry)
     
+    # Trigger area spawns when entering new area
+    spawn_messages = []
+    try:
+        from engine.core.spawn_system import trigger_area_spawns
+        area_id = state.current_micro.replace(" ", "_").lower()
+        spawn_messages = trigger_area_spawns(state, registry, area_id)
+    except Exception as e:
+        # Spawn system is optional, don't break movement if it fails
+        pass
+    
     # Build result narrative via look after move
     look_result = look(state, registry)
     
-    # Add event messages to the result
+    # Add event and spawn messages to the result
+    all_messages = []
     if event_messages:
-        look_result["lines"].extend([""] + event_messages)
+        all_messages.extend(event_messages)
+    if spawn_messages:
+        all_messages.extend([""] + spawn_messages)
+    
+    if all_messages:
+        look_result["lines"].extend([""] + all_messages)
         look_result["events_triggered"] = event_messages
+        look_result["spawns_triggered"] = spawn_messages
     
     look_result["changes"] = {"location": new_location}
     return look_result
@@ -1212,15 +1229,16 @@ def talk(state: GameState, registry: ContentRegistry, npc_name: str = None) -> D
         return {"lines": ["Errore nella posizione corrente."], "hints": [], "events_triggered": [], "changes": {}}
     
     macro_id, micro_id = parts
-    talkable_npcs = registry.npc_registry.get_talkable_npcs(macro_id, micro_id)
+    # List all NPCs present (even if not currently talkable) for visibility
+    present_npcs = registry.npc_registry.get_npcs_at_location(macro_id, micro_id)
     
-    if not talkable_npcs:
+    if not present_npcs:
         return {"lines": ["Non ci sono persone con cui parlare qui."], "hints": [], "events_triggered": [], "changes": {}}
     
     if npc_name is None:
         # List available NPCs
         lines = ["Persone presenti:"]
-        for npc in talkable_npcs:
+        for npc in present_npcs:
             state_desc = ""
             if npc.current_state.value != "neutral":
                 state_desc = f" ({npc.current_state.value})"
@@ -1230,7 +1248,7 @@ def talk(state: GameState, registry: ContentRegistry, npc_name: str = None) -> D
     
     # Find specific NPC
     target_npc = None
-    for npc in talkable_npcs:
+    for npc in present_npcs:
         if npc.name.lower() == npc_name.lower() or npc.id.lower() == npc_name.lower():
             target_npc = npc
             break
@@ -1256,6 +1274,13 @@ def talk(state: GameState, registry: ContentRegistry, npc_name: str = None) -> D
     )
     
     result = dialogue_engine.start_conversation(target_npc, context)
+    # Prefix NPC lines with speaker name for clarity and tests
+    prefixed_lines = []
+    for line in result.get('lines', []):
+        if line and not line.startswith(f"{target_npc.name}:"):
+            prefixed_lines.append(f"{target_npc.name}: {line}")
+        else:
+            prefixed_lines.append(line)
     
     # Store active conversation in state
     state.active_conversation = {
@@ -1265,7 +1290,7 @@ def talk(state: GameState, registry: ContentRegistry, npc_name: str = None) -> D
     }
     
     return {
-        "lines": result['lines'],
+        "lines": prefixed_lines,
         "hints": result['hints'],
         "events_triggered": [],
         "changes": {"started_conversation": target_npc.id}
@@ -1296,6 +1321,13 @@ def say(state: GameState, registry: ContentRegistry, message: str) -> Dict[str, 
     context.weather = state.weather
     
     result = dialogue_engine.process_dialogue_turn(npc, message, context)
+    # Prefix NPC responses with name
+    prefixed_lines = []
+    for line in result.get('lines', []):
+        if line and not line.startswith(f"{npc.name}:"):
+            prefixed_lines.append(f"{npc.name}: {line}")
+        else:
+            prefixed_lines.append(line)
     
     # End conversation if needed
     if not result['conversation_active']:
@@ -1304,7 +1336,7 @@ def say(state: GameState, registry: ContentRegistry, message: str) -> Dict[str, 
         result['lines'].extend(end_result['lines'])
     
     return {
-        "lines": result['lines'],
+        "lines": prefixed_lines,
         "hints": result['hints'],
         "events_triggered": [],
         "changes": {"dialogue_turn": message}
@@ -1926,4 +1958,36 @@ def help_wounded_npc(state: GameState, registry: ContentRegistry, protect_in_qte
         "events_triggered": [],
         "changes": {"quest_completed": "knife_and_rain", "morale_gained": morale_bonus}
     }
+
+def spawn_random(state: GameState, registry: ContentRegistry, spawn_type: str = "both") -> Dict[str, Any]:
+    """Triggera spawn casuali nell'area corrente.
+    
+    Args:
+        spawn_type: 'items', 'enemies', 'both'
+    """
+    try:
+        from engine.core.spawn_system import trigger_area_spawns
+        area_id = state.current_micro.replace(" ", "_").lower()
+        
+        spawn_items = spawn_type in ["items", "both"]
+        spawn_enemies = spawn_type in ["enemies", "both"]
+        
+        messages = trigger_area_spawns(state, registry, area_id, spawn_items, spawn_enemies)
+        
+        if not messages:
+            messages = ["Nessun spawn casuale si è verificato in quest'area."]
+        
+        return {
+            "lines": messages,
+            "hints": [],
+            "events_triggered": [],
+            "changes": {"spawns_triggered": len(messages)}
+        }
+    except Exception as e:
+        return {
+            "lines": [f"Errore nel sistema di spawn: {e}"],
+            "hints": [],
+            "events_triggered": [],
+            "changes": {}
+        }
 

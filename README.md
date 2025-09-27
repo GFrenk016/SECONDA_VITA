@@ -6,6 +6,9 @@ Seconda Vita è un motore narrativo testuale ambientato in un bosco, con profond
 
 ## Funzionalità principali
 - Esplorazione di aree con descrizioni immersive e dettagli sensoriali
+- **🆕 Arena di Test**: Area speciale con 5 zone per testare tutte le funzionalità
+- **🆕 Sistema Spawn Dinamico**: Spawn automatici di oggetti e nemici quando cambi area
+- **🆕 Rinforzi Automatici**: Nemici aggiuntivi durante combattimenti lunghi
 - Oggetti interattivi e dettagli ambientali che cambiano in base a meteo, clima e ora del giorno
 - Clock realtime puro: default rallentato (0.25) => 1 secondo reale = 0.25 minuti di gioco (~96 minuti reali per un giorno intero) configurabile via variabile d'ambiente (niente più comando runtime)
 - Sistema meteo/clima probabilistico rivalutato ogni 30 minuti simulati (anche durante `wait`)
@@ -36,6 +39,11 @@ Suggerimenti rapidi combattimento:
 - `equip <oggetto>` — equipaggia un oggetto dall'inventario
 - `unequip <slot|oggetto>` — rimuove oggetto equipaggiato
 - `drop <oggetto> [quantità]` — lascia cadere oggetti dall'inventario
+
+### 🆕 Nuovi Comandi di Test e Debug
+- **`test_world`** — Trasportati all'Arena di Test con 5 zone specializzate
+- **`spawn_random`** — Attiva spawn casuali nell'area corrente (oggetti e nemici)
+- `debug` — Attiva/disattiva modalità debug per informazioni extra
 - `examine <oggetto>` — esamina oggetto in dettaglio (inventario o mondo)
 
 ### Combattimento (fase 2.1 – realtime ibrido)
@@ -296,3 +304,29 @@ Puoi abilitare dialoghi generati da AI tramite Ollama in locale. Per default è 
     - `-- Ollama abilitato ma non raggiungibile, uso fallback --` in caso contrario.
 
 Nota: se non vuoi installare `requests`, lascia disabilitato Ollama (`SV_OLLAMA_ENABLED=0`) e il gioco userà i fallback statici.
+
+## 🆕 Nuove Funzionalità
+
+### Arena di Test
+Un'area speciale progettata per testare tutte le funzionalità del gioco:
+- **Zona Combattimento**: Nemici variati per testare il sistema di combattimento
+- **Zona Rinforzi**: Area che attiva automaticamente i rinforzi durante i combattimenti
+- **Zona Crafting**: Officina completa con strumenti e materiali
+- **Zona NPC**: Personaggi interattivi con dialoghi e quest
+- **Zona Ambientale**: Oggetti ispezionabili e eventi casuali
+
+Accesso: `test_world` da qualsiasi area
+
+### Sistema Spawn Dinamico
+- **Spawn Automatico**: Cambiando area c'è possibilità di spawn di oggetti/nemici
+- **Configurabile**: Probabilità e tipi personalizzabili per ogni area
+- **Bilanciato**: Sistema che evita spam eccessivo e mantiene equilibrio
+- **Manuale**: Comando `spawn_random` per attivare spawn immediate
+
+### Rinforzi Automatici in Combattimento
+- **Intelligenti**: Si attivano dopo 10 secondi se hai meno di 3 nemici
+- **Graduali**: Massimo 2 nemici aggiuntivi per ondata
+- **Realistici**: Solo in aree con nemici compatibili configurati
+- **Bilanciati**: Cooldown di 8 secondi tra ondate successive
+
+Per maggiori dettagli, consulta `NUOVE_FUNZIONALITA.md`.

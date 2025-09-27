@@ -1,6 +1,35 @@
 
 # Patch Notes
 
+## 🆕 Alpha 0.5 - Sistemi Dinamici e Test
+**Focus:** Sistema spawn dinamico, rinforzi automatici e arena di test completa.
+
+### Nuove Funzionalità Major
+- **Arena di Test**: Mondo dedicato con 5 zone specializzate per testing completo
+- **Sistema Spawn Dinamico**: Spawn probabilistici automatici di oggetti e nemici
+- **Rinforzi Automatici**: Nemici aggiuntivi intelligenti durante combattimenti lunghi
+- **Comandi Test**: `test_world` per accesso arena, `spawn_random` per spawn manuali
+
+### Miglioramenti Sistema
+- **Tutorial Fix**: Risolti problemi comandi `skip` e `menu` nel tutorial
+- **Combat Enhancement**: Rinforzi automatici dopo 10s con meno di 3 nemici attivi
+- **Spawn Balance**: Sistema bilanciato con cooldown e probabilità configurabili
+- **Error Handling**: Migliorata gestione errori e feedback utente
+
+### Contenuti Aggiunti
+- 5 zone test specializzate (combattimento, rinforzi, crafting, NPC, ambientale)
+- Configurazioni spawn per tutte le aree esistenti
+- Sistema di cooldown per prevenire spam di spawn
+- Documentazione estesa con guide d'uso
+
+### File Tecnici
+- `engine/core/spawn_system.py`: Nuovo sistema spawn completo
+- `assets/world/test_world.json`: Arena di test con 5 zone
+- `run.py`: Comandi aggiornati e tutorial fix
+- `engine/core/combat.py`: Rinforzi automatici integrati
+
+---
+
 ## Alpha 0.3
 **Focus:** Primo sistema di combattimento ibrido (Telltale + roguelike) e fondamenta data‑driven per mob e armi.
 

@@ -1710,11 +1710,88 @@ def tick_combat(state: GameState) -> list[str]:
     return lines
 
 # --- Realtime processing helper ---
+def _check_auto_reinforcements(state: GameState) -> List[str]:
+    """Controlla se devono arrivare rinforzi automatici durante il combattimento."""
+    s = state.combat_session
+    if not s or s.get('phase') == 'ended':
+        return []
+    
+    # Evita di spawnare rinforzi troppo spesso
+    last_reinforcement = s.get('last_reinforcement_total', 0)
+    now_total = _total_minutes(state)
+    min_gap = 3  # Minimo 3 minuti simulati tra rinforzi
+    
+    if now_total - last_reinforcement < min_gap:
+        return []
+    
+    # Calcola probabilità di rinforzi basata su vari fattori
+    base_chance = 0.05  # 5% base ogni tick
+    
+    # Aumenta probabilità se il combattimento dura a lungo
+    combat_duration = now_total - s.get('start_total', now_total)
+    if combat_duration > 5:
+        base_chance += 0.02  # +2% se combattimento > 5 min
+    if combat_duration > 10:
+        base_chance += 0.03  # +3% se combattimento > 10 min
+    
+    # Aumenta probabilità se ci sono pochi nemici
+    alive_enemies = sum(1 for e in s.get('enemies', []) if e.get('hp', 0) > 0)
+    if alive_enemies == 1:
+        base_chance += 0.03  # +3% se solo 1 nemico
+    elif alive_enemies == 0:
+        base_chance = 0  # No rinforzi se non ci sono nemici
+    
+    # Limita probabilità massima
+    base_chance = min(base_chance, 0.15)  # Max 15%
+    
+    if random.random() > base_chance:
+        return []
+    
+    # Scegli tipo di rinforzo
+    try:
+        from engine.core.spawn_system import AREA_ENEMY_SPAWNS
+        area_id = state.current_micro.replace(" ", "_").lower()
+        
+        if area_id not in AREA_ENEMY_SPAWNS:
+            return []
+        
+        # Filtra regole con chance di rinforzi > 0
+        reinforcement_rules = [rule for rule in AREA_ENEMY_SPAWNS[area_id] 
+                             if rule.reinforcement_chance > 0]
+        
+        if not reinforcement_rules:
+            return []
+        
+        # Scegli una regola a caso
+        rule = random.choice(reinforcement_rules)
+        
+        # Spawna 1-2 rinforzi
+        count = random.randint(1, 2)
+        
+        lines = []
+        for _ in range(count):
+            enemy_def = spawn_enemy(rule.enemy_id)
+            if enemy_def and s.get('enemies') is not None:
+                s['enemies'].append(enemy_def)
+                lines.append(f"⚡ Rinforzi! Un {enemy_def['name']} si unisce al combattimento!")
+        
+        # Aggiorna timestamp ultimo rinforzo
+        s['last_reinforcement_total'] = now_total
+        
+        return lines
+        
+    except Exception as e:
+        # Spawn system non disponibile o errore, non bloccare il combattimento
+        return []
+
 def _process_realtime_events(state: GameState) -> List[str]:
     s = state.combat_session
     if not s or s.get('phase') == 'ended':
         return []
     out: List[str] = []
+    
+    # Check for automatic reinforcements
+    out.extend(_check_auto_reinforcements(state))
     # Gestione inattività: se trascorsi N secondi reali senza azioni del player, anticipa attacco
     try:
         inactivity_sec = s.get('inactivity_attack_seconds', None)

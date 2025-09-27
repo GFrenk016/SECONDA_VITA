@@ -101,9 +101,12 @@ class AmbientEventSystem:
             print(f"Warning: Failed to load ambient events: {e}")
     
     def check_event_condition(self, condition: Dict[str, Any], state: GameState) -> bool:
-        """Check if an ambient event condition is met."""
+        """Check if an ambient event condition is met.
+
+        Some condition types (like 'day_count') do not require a 'key'.
+        """
         cond_type = condition["type"]
-        key = condition["key"]
+        key = condition.get("key")
         value = condition.get("value")
         negate = condition.get("negate", False)
         
@@ -126,6 +129,8 @@ class AmbientEventSystem:
                 result = (state.day_count > 0)
         elif cond_type == "time_range":
             # Format: "HH:MM-HH:MM"
+            if not key:
+                return False if not negate else True
             start_time, end_time = key.split("-")
             current_minutes = state.time_minutes
             start_minutes = self._time_to_minutes(start_time)

@@ -18,7 +18,7 @@ except Exception:
     pass
 import difflib
 from dataclasses import asdict
-from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, end_conversation, profile, save_game, load_game, list_saves, choice, memories, journal, start_microquest, craft, encounter_wounded_wanderer
+from engine.core.actions import look, go, wait, status, wait_until, inspect, examine, search, where, ActionError, engage, combat_action, spawn, inventory, stats, use_item, equip_item, unequip_item, drop_item, examine_item, talk, say, end_conversation, profile, save_game, load_game, list_saves, choice, memories, journal, start_microquest, craft, encounter_wounded_wanderer, spawn_random
 from engine.core.combat import inject_content, tick_combat, set_complex_qte
 from config import DEFAULT_COMPLEX_QTE_ENABLED, CLI_TICK_INTERVAL_SECONDS
 from engine.core.loader.content_loader import load_combat_content
@@ -62,6 +62,8 @@ COMMAND_HELP = {
     'journal': {'usage': 'journal', 'desc': 'Mostra il diario delle missioni attive.', 'examples': ['journal']},
     'quest': {'usage': 'quest start <nome>', 'desc': 'Avvia una micro-missione specifica.', 'examples': ['quest start knife_and_rain']},
     'craft': {'usage': 'craft <ricetta>', 'desc': 'Crea un oggetto usando una ricetta.', 'examples': ['craft bandage', 'craft knife']},
+    'spawn_random': {'usage': 'spawn_random [tipo]', 'desc': 'Triggera spawn casuali nell\'area. Tipo: items, enemies, both (default).', 'examples': ['spawn_random', 'spawn_random items', 'spawn_random enemies']},
+    'test_world': {'usage': 'test_world', 'desc': 'Teletrasportati all\'Arena di Test per sperimentare tutte le funzionalità.', 'examples': ['test_world']},
     'help': {'usage': 'help [comando]', 'desc': 'Senza argomenti elenca tutto; con argomento mostra usage dettagliato.', 'examples': ['help', 'help look', 'help combat']},
     'menu': {'usage': 'menu', 'desc': 'Ritorna al menu principale.', 'examples': ['menu']},
     'quit': {'usage': 'quit | exit', 'desc': 'Esce dalla partita.', 'examples': ['quit', 'exit']},
@@ -434,6 +436,29 @@ def game_loop():
                     print("Uso: craft <ricetta>")
                     continue
                 res = craft(state, registry, recipe_name)
+            elif cmd.startswith("spawn_random"):
+                parts = cmd.split(maxsplit=1)
+                spawn_type = "both"
+                if len(parts) > 1 and parts[1].strip():
+                    spawn_type = parts[1].strip()
+                    if spawn_type not in ["items", "enemies", "both"]:
+                        print("Tipo spawn non valido. Usa: items, enemies, both")
+                        continue
+                res = spawn_random(state, registry, spawn_type)
+            elif cmd == "test_world":
+                # Teletrasporta al mondo di test
+                if "test_zone" in [macro.id for macro in registry.world.macro_rooms.values()]:
+                    state.current_macro = "test_zone"
+                    state.current_micro = "test_arena"
+                    res = look(state, registry)
+                    res["lines"].insert(0, "🚀 Teletrasportato all'Arena di Test!")
+                else:
+                    res = {
+                        "lines": ["❌ Arena di Test non disponibile. Assicurati che test_world.json sia caricato."],
+                        "hints": [],
+                        "events_triggered": [],
+                        "changes": {}
+                    }
             else:
                 close = difflib.get_close_matches(cmd, COMMAND_HELP.keys(), n=3)
                 if close:
@@ -634,71 +659,75 @@ def tutorial_loop():
             if user.lower() in {"skip","s"}:
                 print("[Step saltato]")
                 break
-            if user.lower() in {"menu"}:
+            if user.lower() == "menu":
                 print("Ritorno al menu principale...")
-                try:
-                    _stop_event.set(); _ticker.join(timeout=1.0)
-                finally:
-                    pass
                 return "menu"
             if user.lower() in {"quit","exit"}:
                 print("Arrivederci.")
-                try:
-                    _stop_event.set(); _ticker.join(timeout=1.0)
-                finally:
-                    pass
-                raise SystemExit(0)
+                return "quit"
             # Esegui comando inserito
             _run_cmd(user)
+        return "continue"
 
     try:
         # 1) Esplorazione base
-        _step(
+        result = _step(
             "Esplorazione", 
             "Osserva dove sei e lo stato del mondo.",
             ["where", "look", "status"],
             ["where","look","status"]
         )
-        _step(
+        if result in ["menu", "quit"]: return
+        
+        result = _step(
             "Attendi il tempo",
             "Fai passare qualche minuto e controlla di nuovo.",
             ["wait 5", "wait until notte", "look"],
             ["wait 5","look","wait until notte","look"]
         )
-        _step(
+        if result in ["menu", "quit"]: return
+        
+        result = _step(
             "Interagisci con l'ambiente",
             "Prova a inspect/examine/search un oggetto visibile (es. 'Cippo di Pietra').",
             ["inspect Cippo di Pietra", "examine Cippo di Pietra", "search Cippo di Pietra"],
             ["inspect Cippo di Pietra","examine Cippo di Pietra","search Cippo di Pietra"]
         )
+        if result in ["menu", "quit"]: return
 
         # 2) Inventario e statistiche
-        _step(
+        result = _step(
             "Inventario",
             "Apri l'inventario, equipaggia il coltello, controlla le statistiche.",
             ["inventory", "equip Hunting Knife", "stats"],
             ["inventory","equip Hunting Knife","stats"]
         )
-        _step(
+        if result in ["menu", "quit"]: return
+        
+        result = _step(
             "Uso e gestione oggetti",
             "Prova a usare un medkit, togli l'arma, lascia un oggetto.",
             ["use Medkit", "unequip main_hand", "drop Cloth 1", "inventory"],
             ["use Medkit","unequip main_hand","drop Cloth 1","inventory"]
         )
+        if result in ["menu", "quit"]: return
 
         # 3) Combattimento base
-        _step(
+        result = _step(
             "Inizia un combattimento",
             "Genera un nemico base (Vagante) e osserva lo stato.",
             ["spawn walker_basic", "status"],
             ["spawn walker_basic","status"]
         )
-        _step(
+        if result in ["menu", "quit"]: return
+        
+        result = _step(
             "Attacca e osserva i QTE offensivi",
             "Esegui alcuni 'attack' finché appare un prompt tipo 'Colpisci la testa! (T)'.\nQuando lo vedi, digita il tasto tra parentesi, oppure premi Invio e lo farò io.",
             ["attack", "qte <tasto>"],
             ["attack","attack","attack"]
         )
+        if result in ["menu", "quit"]: return
         # Se c'è un QTE offensivo attivo, auto-rispondilo se l'utente non lo ha fatto
         try:
             sess = getattr(state, 'combat_session', None)
@@ -709,12 +738,14 @@ def tutorial_loop():
         except Exception:
             pass
 
-        _step(
+        result = _step(
             "Difesa in tempo reale",
             "Attendi che compaia 'Difesa! ...' e premi il tasto indicato per parare.\nOppure premi Invio e parerò automaticamente alla prossima finestra.",
             ["status", "qte <tasto>", "attack"],
             ["status"]
         )
+        if result in ["menu", "quit"]: return
+        
         # Parata automatica se possibile
         try:
             sess = getattr(state, 'combat_session', None)
@@ -726,30 +757,37 @@ def tutorial_loop():
             pass
 
         # 4) Combattimento avanzato: multi-nemico e tattiche
-        _step(
+        result = _step(
             "Più nemici",
             "Aggiungi altri due Vaganti e osserva la lista bersagli.",
             ["spawn walker_basic 2", "status"],
             ["spawn walker_basic 2","status"]
         )
-        _step(
+        if result in ["menu", "quit"]: return
+        
+        result = _step(
             "Attacco ad area",
             "Esegui un 'attack all' per colpire tutti (danno ridotto per bersaglio).",
             ["attack all"],
             ["attack all"]
         )
-        _step(
+        if result in ["menu", "quit"]: return
+        
+        result = _step(
             "Focus bersaglio",
             "Imposta il focus sul secondo nemico e colpiscilo.",
             ["focus 2", "attack"],
             ["focus 2","attack"]
         )
-        _step(
+        if result in ["menu", "quit"]: return
+        
+        result = _step(
             "Controllo distanza",
             "Usa 'push' per guadagnare spazio, poi prova a 'flee' per fuggire.",
             ["push", "flee"],
             ["push","flee"]
         )
+        if result in ["menu", "quit"]: return
 
         print("\n*** Tutorial completato! Torni al menu con 'menu' o premi Invio. ***")
         user = input(PROMPT).strip().lower()

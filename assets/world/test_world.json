@@ -1,0 +1,227 @@
+{
+  "id": "test_world",
+  "name": "Arena di Test",
+  "description": "Un'area speciale creata per testare tutte le funzionalità del gioco.",
+  "macro_rooms": [
+    {
+      "id": "test_zone",
+      "name": "Zona di Test",
+      "description": "Un'area multifunzionale per sperimentare tutti i sistemi di gioco.",
+      "micro_rooms": [
+        {
+          "id": "test_arena",
+          "name": "Arena di Test",
+          "short": "Un'area spaziosa dove ogni funzionalità può essere testata.",
+          "description": "Ti trovi in un'arena speciale creata per esplorare tutte le possibilità del mondo di Seconda Vita. L'ambiente sembra reagire magicamente ai tuoi comandi, permettendoti di sperimentare liberamente. Qui puoi trovare oggetti, incontrare nemici, testare il crafting e scoprire tutti i segreti del gioco. Un cartello indica: 'Benvenuto nell'Arena di Test - Qui tutto è possibile!'",
+          "tags": ["outdoor", "test", "arena"],
+          "on_enter_events": ["test_arena_welcome"],
+          "interactables": [
+            {
+              "id": "test_sign",
+              "name": "Cartello di Test",
+              "description": "Un cartello che spiega come utilizzare l'arena di test.",
+              "examine_text": "Il cartello elenca tutti i comandi speciali:\n• spawn_random - Spawn casuali di oggetti e nemici\n• spawn_random items - Solo oggetti\n• spawn_random enemies - Solo nemici\n• help test - Guida completa al test\n• craft <ricetta> - Sistema crafting\n• talk - Interazione con NPC",
+              "search_result": "Non c'è nulla nascosto dietro il cartello, ma noti che è ben mantenuto."
+            },
+            {
+              "id": "training_dummy",
+              "name": "Manichino da Addestramento",
+              "description": "Un manichino di paglia per praticare il combattimento.",
+              "examine_text": "Il manichino ha segni di numerosi colpi. Sembra robusto e pronto per l'allenamento.",
+              "search_result": "Trovi alcune frecce conficcate nel manichino. Potrebbero essere ancora buone."
+            },
+            {
+              "id": "crafting_table",
+              "name": "Tavolo da Lavoro",
+              "description": "Un tavolo attrezzato per il crafting con tutti gli strumenti necessari.",
+              "examine_text": "Il tavolo è ben organizzato con martelli, pinze, aghi e filo. Tutto quello che serve per craftare.",
+              "search_result": "Trovi alcuni materiali di scarto che potrebbero essere utili per le ricette."
+            },
+            {
+              "id": "treasure_chest",
+              "name": "Forziere del Tesoro",
+              "description": "Un forziere antico con la serratura rotta, semi-aperto.",
+              "examine_text": "Il forziere contiene vari oggetti utili per i test. Sembra rifornirsi magicamente.",
+              "search_result": "Trovi equipaggiamento vario e oggetti consumabili di alta qualità!"
+            },
+            {
+              "id": "spawn_circle",
+              "name": "Cerchio di Evocazione",
+              "description": "Un cerchio magico inciso nel terreno, con simboli misteriosi.",
+              "examine_text": "I simboli sembrano pulsare debolmente. Questo cerchio può evocare creature per il combattimento.",
+              "search_result": "Le pietre del cerchio nascondono antiche rune che amplificano gli spawn."
+            }
+          ],
+          "exits": [
+            {
+              "direction": "n",
+              "target_micro": "test_combat_zone",
+              "locked": false,
+              "description": "Una zona dedicata al combattimento avanzato."
+            },
+            {
+              "direction": "e",
+              "target_micro": "test_crafting_zone",
+              "locked": false,
+              "description": "Un'area attrezzata per il crafting e l'inventario."
+            },
+            {
+              "direction": "s",
+              "target_micro": "test_npc_zone",
+              "locked": false,
+              "description": "Una zona con vari NPC per testare i dialoghi."
+            },
+            {
+              "direction": "w",
+              "target_micro": "test_world_zone",
+              "locked": false,
+              "description": "Un'area per testare meccaniche ambientali e temporali."
+            }
+          ]
+        },
+        {
+          "id": "test_combat_zone",
+          "name": "Zona Combattimento",
+          "short": "Un'arena dedicata al combattimento e ai test di battaglia.",
+          "description": "Questa zona è progettata specificamente per testare il sistema di combattimento. Il terreno è segnato da numerose battaglie, con armi sparse e tracce di QTE. L'aria vibrante di tensione sembra invocare sfide continue. Spawn di nemici sono molto frequenti qui, e i rinforzi arrivano spesso durante le battaglie. Un'iscrizione sulla roccia dice: 'Qui si tempra il guerriero'.",
+          "tags": ["outdoor", "test", "combat", "dangerous"],
+          "on_enter_events": ["combat_zone_warning"],
+          "interactables": [
+            {
+              "id": "weapon_rack",
+              "name": "Rastrelliera d'Armi",
+              "description": "Una collezione di armi da combattimento per i test.",
+              "examine_text": "Contiene spade, coltelli, lance e armi da lancio di varia qualità.",
+              "search_result": "Trovi un'arma perfettamente bilanciata per i tuoi test!"
+            },
+            {
+              "id": "battle_horn",
+              "name": "Corno da Battaglia",
+              "description": "Un corno che può invocare nemici per il combattimento.",
+              "examine_text": "Il corno è decorato con simboli di guerra. Suonarlo attirerà sicuramente nemici.",
+              "search_result": "Il corno nasconde una mappa delle creature più pericolose della zona."
+            }
+          ],
+          "exits": [
+            {
+              "direction": "s",
+              "target_micro": "test_arena", 
+              "locked": false,
+              "description": "Torna all'arena principale."
+            }
+          ]
+        },
+        {
+          "id": "test_crafting_zone",
+          "name": "Zona Crafting",
+          "short": "Un laboratorio completo per il crafting e la gestione inventario.",
+          "description": "Questo è il paradiso di ogni crafter! Tavoli da lavoro, forni, alambicchi e ogni tipo di strumento immaginabile. Materiali di ogni tipo sono sparsi ovunque, pronti per essere trasformati in oggetti utili. Scaffali pieni di ingredienti rari si estendono fino al soffitto. Una scritta luminosa dice: 'Crea, Sperimenta, Migliora'.",
+          "tags": ["indoor", "test", "crafting", "workshop"],
+          "on_enter_events": ["crafting_zone_tutorial"],
+          "interactables": [
+            {
+              "id": "master_workbench",
+              "name": "Banco da Maestro",
+              "description": "Un banco da lavoro magistrale con ogni strumento possibile.",
+              "examine_text": "Questo banco permette di craftare qualsiasi ricetta conosciuta con efficienza massima.",
+              "search_result": "Trovi piani per ricette avanzate e materiali preziosi!"
+            },
+            {
+              "id": "ingredient_storage",
+              "name": "Deposito Ingredienti",
+              "description": "Un magazzino infinito di ingredienti per il crafting.",
+              "examine_text": "Contiene praticamente ogni materiale necessario per qualsiasi ricetta.",
+              "search_result": "Scopri ingredienti rari e segreti che non avevi mai visto prima!"
+            },
+            {
+              "id": "recipe_book",
+              "name": "Libro delle Ricette",
+              "description": "Un tomo che contiene tutte le ricette possibili.",
+              "examine_text": "Il libro si aggiorna magicamente con nuove ricette man mano che esplori.",
+              "search_result": "Trovi una sezione segreta con ricette leggendarie!"
+            }
+          ],
+          "exits": [
+            {
+              "direction": "w",
+              "target_micro": "test_arena",
+              "locked": false,
+              "description": "Torna all'arena principale."
+            }
+          ]
+        },
+        {
+          "id": "test_npc_zone", 
+          "name": "Zona NPC",
+          "short": "Un'area popolata da vari NPC per testare i dialoghi.",
+          "description": "Questa zona brulica di personaggi interessanti, ognuno con la propria storia e personalità. Mercanti, guaritori, saggi e viaggiatori si muovono liberamente, pronti per conversazioni coinvolgenti. Bancarelle colorate e tende sparse creano un'atmosfera vivace. Un cartello dice: 'Qui ogni voce ha una storia da raccontare'.",
+          "tags": ["outdoor", "test", "social", "marketplace"],
+          "on_enter_events": ["npc_zone_introduction"],
+          "interactables": [
+            {
+              "id": "message_board",
+              "name": "Bacheca dei Messaggi",
+              "description": "Una bacheca piena di messaggi e richieste dagli NPC.",
+              "examine_text": "I messaggi riguardano varie quest, scambi commerciali e informazioni utili.",
+              "search_result": "Trovi una mappa con la posizione di tutti gli NPC speciali!"
+            },
+            {
+              "id": "conversation_pit",
+              "name": "Fossa delle Conversazioni",
+              "description": "Un'area circolare dove gli NPC si riuniscono per parlare.",
+              "examine_text": "Qui puoi ascoltare conversazioni interessanti e unirtici liberamente.",
+              "search_result": "Scopri segreti nascosti nelle conversazioni degli NPC!"
+            }
+          ],
+          "exits": [
+            {
+              "direction": "n",
+              "target_micro": "test_arena",
+              "locked": false,
+              "description": "Torna all'arena principale."
+            }
+          ]
+        },
+        {
+          "id": "test_world_zone",
+          "name": "Zona Ambientale", 
+          "short": "Un'area per testare meccaniche temporali e ambientali.",
+          "description": "Questa zona magica permette di sperimentare con tempo, meteo e meccaniche ambientali. Il cielo cambia rapidamente, le stagioni si alternano, e fenomeni atmosferici si susseguono. Antichi obelischi controllano il flusso temporale, mentre cristalli colorati influenzano il meteo. Una meridiana gigante al centro indica: 'Il tempo è nelle tue mani'.",
+          "tags": ["outdoor", "test", "temporal", "magical"],
+          "on_enter_events": ["temporal_zone_activation"],
+          "interactables": [
+            {
+              "id": "time_obelisk",
+              "name": "Obelisco Temporale",
+              "description": "Un obelisco antico che controlla il flusso del tempo.",
+              "examine_text": "I simboli sull'obelisco pulsano in sincronia con il tempo che scorre.",
+              "search_result": "Scopri come manipolare il tempo per i tuoi test!"
+            },
+            {
+              "id": "weather_crystals",
+              "name": "Cristalli del Meteo",
+              "description": "Cristalli colorati che influenzano le condizioni atmosferiche.",
+              "examine_text": "Ogni cristallo emette un'aura diversa: sole, pioggia, nebbia, vento.",
+              "search_result": "Trovi un cristallo speciale che può creare combinazioni meteorologiche uniche!"
+            },
+            {
+              "id": "seasonal_tree",
+              "name": "Albero delle Stagioni",
+              "description": "Un albero magico che cambia aspetto con le stagioni accelerate.",
+              "examine_text": "Foglie verdi, dorate, spoglie, e di nuovo gemme in un ciclo continuo.",
+              "search_result": "L'albero nasconde frutti speciali che cambiano proprietà con le stagioni!"
+            }
+          ],
+          "exits": [
+            {
+              "direction": "e",
+              "target_micro": "test_arena",
+              "locked": false,
+              "description": "Torna all'arena principale."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
